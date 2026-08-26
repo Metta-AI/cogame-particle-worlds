@@ -129,6 +129,23 @@ suite "the manifest":
     check manifest["episode_timeout_minutes"].getInt() == 20
     check manifest["tags"].len >= 3
     check manifest.hasKey("$schema")
+    ## Checklist item 3, literally: no /client/replay pod path ANYWHERE. The
+    ## starter served its designed board page from the game pod; a second
+    ## viewer nothing in CI opens is the one that drifts, so the route is gone
+    ## from the server and from the documented route table.
+    let server = sourceOf("src/mpe/server.nim")
+    for gone in ["ReplayClientRoute", "CoworldReplayClientRoute",
+                 "EmbeddedBroadcastReplayHtml", "EmbeddedLeagueReplayerHtml",
+                 "\"/client/league\""]:
+      if gone in server:
+        echo "still routed: ", gone
+      check gone notin server
+    ## The documented route table no longer offers it (the prose that says it
+    ## is GONE is allowed to name it, and the manifest carries a copy).
+    check "`GET /client/replay`" notin sourceOf("docs/PROTOCOL.md")
+    check "no `/client/replay` pod path" in sourceOf("docs/PROTOCOL.md")
+    check "`GET /client/replay`" notin
+      manifest["game"]["protocols"]["global"]["value"].getStr()
 
   test "every variant's wallClockBudgetSeconds is inside 60% of the timeout":
     let ceiling = manifest["episode_timeout_minutes"].getInt() * 60 * 6 div 10

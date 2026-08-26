@@ -15,9 +15,14 @@ Both are produced by the same server from the same sim, so live and replay are i
 | `GET /global` | the spectator websocket. Answers a WebSocket Ping with a Pong. |
 | `GET /client/global` | a real spectator page. Registered before any catch-all asset route, and it never opens the player socket. |
 | `GET /client/player` | a real seat page. Same two rules. |
-| `GET /client/replay` | the replay page. |
 | `GET /replay-data` | the replay bytes of the episode in progress. |
 | `GET /reward` | the live per-seat reward stream. |
+
+There is **no `/client/replay` pod path** (and no `/clients/replay`, no
+`/client/league`). Replays are served by the static WASM bundle the platform
+builds from `tools/build_replay_viewer.sh` and hosts itself
+(`"replay_viewer": {"bundle": "static-replay-viewer"}`); the game pod serves
+the episode in progress and its bytes, and nothing else.
 
 ## Runtime contract
 
