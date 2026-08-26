@@ -118,7 +118,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/coworld-venv"
-          "$RUNNER_TEMP/coworld-venv/bin/pip" install --quiet "coworld[auth]==0.1.42"
+          "$RUNNER_TEMP/coworld-venv/bin/pip" install --quiet "coworld[auth]==0.1.43"
           "$RUNNER_TEMP/coworld-venv/bin/python" tools/ci/check_manifest_upload.py
 
       - name: Run tests

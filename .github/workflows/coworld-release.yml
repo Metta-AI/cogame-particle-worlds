@@ -61,7 +61,7 @@ concurrency:
 env:
   SLUG: particle-worlds
   IMAGE: coworld-particle-worlds
-  # 0.1.42 is a FLOOR, not a preference. Two independent reasons:
+  # 0.1.43 is a FLOOR, not a preference. Three independent reasons:
   # - LIVENESS_MARKER below is only emitted from 0.1.38 on
   #   (cli.py `_uses_static_replay_viewer_bundle`).
   # - upload-coworld only waits for the server to finish expanding the
@@ -69,9 +69,16 @@ env:
   #   older clients race the expansion and the manifest POST fails HTTP 400
   #   "Coworld replay viewer bundle must be uploaded first"
   #   (seen: cogame-lighthouse release run 32603113899, 2026-08-22).
+  # - `--wait-hosted-smoke` polls the hosted smoke episodes, and up to 0.1.42 it
+  #   polled the flat `GET /v2/episode-requests`, which the platform now answers
+  #   405 Method Not Allowed (`allow: POST`). 0.1.43 polls
+  #   `GET /v2/coworlds/<cow_id>/episode-requests` instead. On 0.1.42 the upload
+  #   POSTs the manifest, schedules the smoke, then dies in the poll: the
+  #   version exists but is never confirmed canonical (particle-worlds 0.1.1,
+  #   run 32972799731, 2026-08-26).
   # 0.1.34 unconditionally prints "Replay liveness: verified ...", so the
   # certify gate can never pass on it. Do not pin lower.
-  COWORLD_PKG: "coworld[auth]==0.1.42"
+  COWORLD_PKG: "coworld[auth]==0.1.43"
   LIVENESS_MARKER: "Replay liveness: skipped (static replay bundle declared"
 
 jobs:
