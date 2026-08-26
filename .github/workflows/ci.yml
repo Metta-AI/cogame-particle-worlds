@@ -341,9 +341,16 @@ jobs:
         # the scripted baseline and a scripted seat emits no note -- every
         # replay CI produces carries ZERO LLM text, and nothing that plays a
         # replay can draw the feed or the symbol bubbles. The fixture loads the
-        # real renderer with a full-cap 160-rune note on every seat, a
-        # non-silent symbol on all four particles and the crypto panel
-        # populated, at three board widths (the cogchemists 2026-08-24 rule).
+        # REAL viewer page (dist/static-replay-viewer/index.html, in an iframe,
+        # with only the OffscreenCanvas transport stubbed) and hands the page's
+        # own coreConfig.onText a worst-case frame: a full-cap 160-rune note on
+        # every seat, a non-silent symbol on all four particles and the crypto
+        # panel populated, at three board widths (the cogchemists 2026-08-24
+        # rule). Every string the real chrome lays out is transcribed onto a
+        # canvas at the position and in the font the browser used, so
+        # --strict-text-bounds can see it -- the viewer itself renders its board
+        # in a Worker and its text in the DOM, where the harness's
+        # CanvasRenderingContext2D hook sees nothing.
         run: |
           set -euo pipefail
           test -s tools/ci/renderer_fixture.html || {
@@ -362,6 +369,25 @@ jobs:
             --timeout 60 \
             --out "$PWD/fixture" \
             --strict-text-bounds
+          # `total: 0` means the check covered nothing and is not evidence of
+          # anything (prompts/30-review-loop.md item 15), so the fixture's own
+          # canvas_text line is asserted rather than merely printed.
+          python3 - "$PWD/fixture/viewer-smoke.json" <<'PY'
+          import json, sys
+          summary = json.load(open(sys.argv[1]))
+          text = summary.get("canvas_text") or {}
+          total = text.get("total", 0)
+          never = text.get("never_inside", 0)
+          print(f"fixture canvas_text: total={total} never_inside={never} "
+                f"outside={text.get('outside', 0)}")
+          if total <= 0:
+              print("::error::the renderer fixture drew NO canvas text: the "
+                    "text-bounds check covered nothing")
+              sys.exit(1)
+          if never != 0:
+              print(f"::error::{never} string(s) were never drawn inside the frame")
+              sys.exit(1)
+          PY
 
       - name: Native-to-wasm determinism gate
         # Re-steps the recorded mask log inside the EMITTED wasm module and

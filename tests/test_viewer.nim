@@ -254,3 +254,44 @@ suite "the broadcast chrome":
     check "_mpe_load_replay" in flags
     check "-s ENVIRONMENT=web,worker,node" in flags
     check "--preload-file" in flags
+
+  test "the worst-case renderer fixture drives the REAL page":
+    ## CI can produce a real replay but never a talkative one (docker_smoke.sh
+    ## runs with no ANTHROPIC_API_KEY), so the only gate that ever sees a note,
+    ## a symbol bubble or the crypto panel is tools/ci/renderer_fixture.html.
+    ## It has to load the SHIPPED page and drive it -- a fixture with its own
+    ## drawing code tests its own drawing code.
+    let fixture = sourceOf("tools/ci/renderer_fixture.html")
+    check "fetch('./index.html'" in fixture
+    check "particle-worlds additions to the inherited coworld-ctf chrome" in
+      fixture
+    ## The page's OWN transport callback is what receives the worst-case frame.
+    check "window.__fixtureConfig = config" in fixture
+    check "config.onText(worstCaseFrame(" in fixture
+    ## Nothing here re-implements the chrome it is meant to be testing.
+    check "drawBoard" notin fixture
+    check "fillRect(0, 0, width, height)" in fixture  # the transcription only
+    ## The worst case: a full-cap note on EVERY seat, at three board widths,
+    ## with the fixture failing loudly if its own strings ever shorten.
+    check "var WIDTHS = [360, 620, 1280];" in fixture
+    check "160-rune MaxNoteRunes cap" in fixture
+    check "data-replay-loaded" in fixture
+    check "data-replay-error" in fixture
+    ## And ci.yml drives it in its own step, gated.
+    let ci = sourceOf(".github/workflows/ci.yml")
+    check "renderer_fixture.html" in ci
+    check "--strict-text-bounds" in ci
+    check "the renderer fixture drew NO canvas text" in ci
+
+  test "a commander's note wraps inside the feed instead of running off-frame":
+    ## The inherited feed row is `white-space: nowrap` because a kill row is two
+    ## short names; a 160-rune note in that row is unbreakable text anchored to
+    ## the feed's right edge, so at a 360 px board it grows leftward off the
+    ## frame (the cogchemists 2026-08-24 defect). Notes wrap instead.
+    check "'mpe-note-row'" in page
+    check ".feed-row.mpe-note-row {" in page
+    let rule = page[page.find(".feed-row.mpe-note-row {") ..<
+      page.find('}', page.find(".feed-row.mpe-note-row {"))]
+    check "white-space: normal" in rule
+    check "max-width: calc(228 * var(--u))" in rule
+    check "#stage.tiny .feed-row.mpe-note-row { max-width: calc(190 * var(--u)); }" in page

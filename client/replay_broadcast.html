@@ -4364,6 +4364,24 @@ button.beat-marker {
 .feed-row .mpe-say { font-family: var(--pixfont); }
 .feed-row .mpe-note { color: var(--paper-dim); }
 .feed-row .mpe-round-line { color: var(--amber); letter-spacing: 0.08em; }
+/* A commander's note is a SENTENCE, not a label. The inherited feed row is
+   `white-space: nowrap; max-width: none` because a kill row is two 10-char
+   names; a 160-rune note in that row is ~390px of unbreakable text anchored to
+   the feed's right edge, so at a 360px board it grows LEFTWARD straight off the
+   frame and the model's own words are drawn at a negative x — invisible to the
+   load signal, the soak and the screenshot (cogchemists, 2026-08-24). Note rows
+   therefore WRAP inside the feed's reserved width instead: widen the band, never
+   shorten the text. tools/ci/renderer_fixture.html drives the real chrome with a
+   full-cap note on all four seats at 360 / 620 / 1280 px and fails if any run
+   lands outside the frame. */
+.feed-row.mpe-note-row {
+  white-space: normal;
+  max-width: calc(228 * var(--u));
+  align-items: flex-start;
+  text-align: left;
+}
+#stage.tiny .feed-row.mpe-note-row { max-width: calc(190 * var(--u)); }
+.feed-row.mpe-note-row .mpe-note { overflow-wrap: anywhere; }
 </style>
 <script>
 (function () {
@@ -4529,7 +4547,7 @@ button.beat-marker {
       feedRow('<span class="who ' + (TEAMS[d.seat] || '') + '">' +
         CTX.esc(String(d.alias || '')) + '</span>' +
         '<span class="glyph">:</span><span class="badge mpe-note">' +
-        CTX.esc(d.note) + '</span>');
+        CTX.esc(d.note) + '</span>', 'mpe-note-row');
     }
   }
 
