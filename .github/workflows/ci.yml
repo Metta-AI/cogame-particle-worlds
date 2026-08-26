@@ -108,6 +108,19 @@ jobs:
         # at release time.
         run: python3 tools/build_manifest.py --check
 
+      - name: Assert the coworld CLI accepts the manifest
+        # The Nim manifest test pins what the GAME needs; this pins what the
+        # release-time CLI accepts, which is a different set and was otherwise
+        # only checked inside `coworld certify`'s `matriculate` step — twelve
+        # minutes and one version number per mistake (particle-worlds 0.1.0
+        # lost a dispatch to `game_config must not include runner-managed
+        # tokens`). Same pin as coworld-release.yml's COWORLD_PKG.
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/coworld-venv"
+          "$RUNNER_TEMP/coworld-venv/bin/pip" install --quiet "coworld[auth]==0.1.42"
+          "$RUNNER_TEMP/coworld-venv/bin/python" tools/ci/check_manifest_upload.py
+
       - name: Run tests
         # Every tests/*.nim runs twice: debug (range/overflow checks, stack
         # traces) and -d:release (release-only compile errors and codegen bugs
