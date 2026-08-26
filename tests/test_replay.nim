@@ -273,6 +273,42 @@ suite "the replay":
           sawTag = true
           check event["alias"].getStr() == tagSim.cogAlias(pursuer)
       check sawTag
+    ## `onpoint` fires the first time a mobile agent reaches the round's GOAL,
+    ## which a drifter pack manages only by luck inside 540 ticks -- so, like
+    ## `tag`, its detector is exercised directly rather than left unasserted.
+    block onPointDetector:
+      var goalSim = seatedSim(fixtureConfig(@[modeCrypto]))
+      check goalSim.goalLandmark >= 0
+      var mover = -1
+      for seat in 0 ..< 4:
+        if not goalSim.isAnchored(seat):
+          mover = seat
+          break
+      check mover >= 0
+      var goalTracker = initBroadcastTracker()
+      let warm = newJArray()
+      goalSim.stepEvents(goalTracker, warm)        ## initialise the deltas
+      goalSim.onPointDone[mover] = false           ## nobody has arrived yet
+      goalSim.stepEvents(goalTracker, warm)        ## and the tracker agrees
+      let (gx, gy) = goalSim.markCentre(goalSim.goalLandmark)
+      goalSim.players[mover].x = gx
+      goalSim.players[mover].y = gy
+      let crossings = goalSim.updateBeliefs()
+      check goalSim.onPointDone[mover]
+      var announced = false
+      for point in crossings.onPoints:
+        if point.seat == mover:
+          announced = true
+      check announced
+      let arrival = newJArray()
+      goalSim.stepEvents(goalTracker, arrival)
+      var sawOnPoint = false
+      for event in arrival:
+        if event["k"].getStr() == "onpoint":
+          sawOnPoint = true
+          check event["alias"].getStr() == goalSim.cogAlias(mover)
+          check event["mark"].getInt() == goalSim.goalLandmark
+      check sawOnPoint
     ## And the tier-2 stream keeps its mandatory trailing summary row.
     let jsonl = eventsJsonl(sim.events, sim.tickCount)
     let lines = jsonl.strip().splitLines()
@@ -320,6 +356,16 @@ suite "the replay":
       if NonAsciiNote in record["note"].getStr():
         sawNonAscii = true
     check sawNonAscii
+    ## ONE directive per seat per turn -- the design's stream spec, asserted as
+    ## a per-(round, turn) group rather than a floor over the whole episode.
+    var perTurn = initCountTable[string]()
+    for record in summary["directives"]:
+      perTurn.inc($record["round"].getInt() & ":" & $record["turn"].getInt())
+    check perTurn.len >= 4              ## at least one turn in every round
+    for key, count in perTurn:
+      if count != FixtureSeats:
+        echo "turn ", key, " carries ", count, " directives"
+      check count == FixtureSeats
     ## The embedded config JSON decodes strictly too.
     check summary["seed"].getInt() == FixtureSeed
 
