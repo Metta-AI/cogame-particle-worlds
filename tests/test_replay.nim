@@ -17,23 +17,34 @@ const
   NonAsciiLabel = "poli\u00e7y-\u00e9\u00e0\u00fc"      ## a non-ASCII policy label
   NonAsciiNote = "cubrir la marca m\u00e1s cercana \u2014 \u00e9\u00e0\u00fc"
 
-proc recordEpisode(rounds: seq[Mode], ticks: int): tuple[
+proc recordEpisode(rounds: seq[Mode], ticks: int,
+                   wallClockBudgetSeconds = 0): tuple[
     path: string, sim: SimServer, records: int] =
   ## Plays a scripted episode through the REAL replay writer, exactly as the
   ## server's loop does: one mask per particle per tick, one hash per tick, and
   ## the chat records for every roundcard, register, directive and the result.
+  ##
+  ## With `wallClockBudgetSeconds > 0` the episode ends the way the engine's
+  ## hard stop ends it (`server.nim`'s deadline check) instead of on the round
+  ## clock. This harness's wall clock is the TICK clock — 24 Hz, so a budget of
+  ## 10 lands the stop on tick 240, mid-round — which keeps the recording
+  ## reproducible while the stop itself goes through the very procs the server
+  ## calls (`wallClockStopRecord` + `applyWallClockStop`).
   var config = variantConfig(rounds)
   config.maxTicks = ticks
   config.maxGames = rounds.len
   config.turnSpacingMs = 0
   config.startWaitTicks = 0
   config.gameOverTicks = 24
+  if wallClockBudgetSeconds > 0:
+    config.wallClockBudgetSeconds = wallClockBudgetSeconds
   ## The sim is NOT started here: the seats join on a LOBBY tick and
   ## `stepLobby` starts the round inside the step, exactly as the server does,
   ## so the replayed sim reaches Playing on the same tick from the same
   ## recorded joins.
   var sim = initSimServer(config)
-  let path = getTempDir() / ("pw-test-" & $getCurrentProcessId() & ".bitreplay")
+  let path = getTempDir() / ("pw-test-" & $getCurrentProcessId() & "-" &
+    $wallClockBudgetSeconds & ".bitreplay")
   var writer = openReplayWriter(path, config.configJson())
   for seat in 0 ..< FixtureSeats:
     sim.seatNames[seat] = NonAsciiLabel & "-" & $seat
@@ -46,7 +57,18 @@ proc recordEpisode(rounds: seq[Mode], ticks: int): tuple[
     prev = newSeq[InputState](sim.players.len)
     played = 0
     records = 0
+    deadlineHit = false
   while played < rounds.len:
+    ## The engine's hard stop, checked at the TOP of the iteration exactly as
+    ## the server checks it: record the stop first, then apply it, so the
+    ## record sits at this tick's time — where playback re-applies it, before
+    ## the same tick's step.
+    if wallClockBudgetSeconds > 0 and not deadlineHit and
+        sim.tickCount div TargetFps >= config.wallClockBudgetSeconds:
+      deadlineHit = true
+      writer.writeChat(tickTime(sim.tickCount), 0, sim.wallClockStopRecord())
+      sim.applyWallClockStop()
+      inc records
     if sim.phase == Lobby and sim.players.len < FixtureSeats:
       ## The SIM cleared the roster (resetToLobby, inside the step) and
       ## advanced the round; the seats rejoin exactly as the server's squad
@@ -103,6 +125,10 @@ proc recordEpisode(rounds: seq[Mode], ticks: int): tuple[
     sim.step(inputs, prev)
     prev = inputs
     writer.writeHash(uint32(sim.tickCount), sim.gameHash())
+    if deadlineHit:
+      ## The stop's own tick is recorded and hashed like any other; the
+      ## episode ends here, as the server's `quitAfterFrame` ends it.
+      break
     if before != GameOver and sim.phase == GameOver:
       inc played
       if played >= rounds.len:
@@ -162,8 +188,85 @@ suite "the replay":
     ## And the re-derived round log matches the recorded one.
     check game.landmarks.len == LandmarkCount
 
+  ## The other ending the design accepts: the engine's wall-clock stop
+  ## (`reason: deadline`). It is the one end path that mutates hashed state
+  ## from OUTSIDE the step, so it is the one that needs the recorded `stop`
+  ## record to re-derive.
+  var deadline = recordEpisode(
+    @[modeSpread, modeDeceive, modeCrypto, modeTag], 540,
+    wallClockBudgetSeconds = 10)
+
+  test "a DEADLINE-ended episode re-derives frame by frame, stop tick included":
+    ## The recording: the stop banked the round in progress and finished the
+    ## game mid-round, from outside the step.
+    check deadline.sim.phase == GameOver
+    check deadline.sim.endReason == ReasonDeadline
+    check deadline.sim.endRule == EndRuleWallClock
+    check deadline.sim.roundLog.len == 1
+    check deadline.sim.roundLog[^1].endRule == EndRuleWallClock
+    check deadline.sim.roundLog[^1].ticks < 540      ## cut short, not full time
+    let recorded = parseJson(deadline.sim.particleResultsJson())
+    check recorded["reason"].getStr() == ReasonDeadline
+    check recorded["endRule"].getStr() == EndRuleWallClock
+    check recorded["roundsPlayed"].getInt() == 1
+
+    ## Exactly one `stop` record rides the stream.
+    let bytes = readFile(deadline.path)
+    var stops = 0
+    var at = 0
+    while true:
+      at = bytes.find("{\"k\":\"stop\"", at)
+      if at < 0:
+        break
+      inc stops
+      at = at + 1
+    check stops == 1
+
+    ## Playback re-derives it: EVERY recorded hash, the stop tick's included.
+    let data = parseReplayBytes(bytes)
+    check data.hashes.len > 0
+    var initialized = initReplayRuntime(
+      data, mismatchQuit = false, gameEventLoggingEnabled = false)
+    var
+      game = move(initialized.sim)
+      player = move(initialized.player)
+      tracker = move(initialized.tracker)
+    var frames = 0
+    while frames < data.hashes.len + 64:
+      discard player.advanceReplayFrame(game, tracker, @[], @[])
+      inc frames
+      if player.hashMismatchTick >= 0:
+        break
+      if game.tickCount >= int(data.hashes[^1].tick):
+        break
+    if player.hashMismatchTick >= 0:
+      echo "DEADLINE MISMATCH at tick ", player.hashMismatchTick,
+        " simTick=", game.tickCount, " phase=", game.phase,
+        " roundsPlayed=", game.roundsPlayed
+    check player.hashMismatchTick == -1
+    check game.tickCount >= int(data.hashes[^1].tick) - 1
+    ## And it ENDS where the recording ended — a replay that quietly stayed
+    ## `Playing` would pass the hash check above and still show no ending.
+    check game.phase == GameOver
+    check game.winner == deadline.sim.winner
+    check game.isDraw == deadline.sim.isDraw
+    check game.roundsPlayed == deadline.sim.roundsPlayed
+    check game.roundLog.len == deadline.sim.roundLog.len
+    for seat in 0 ..< 4:
+      check game.roundLog[^1].permille[seat] ==
+        deadline.sim.roundLog[^1].permille[seat]
+    let rederived = parseJson(game.particleResultsJson())
+    check rederived["reason"].getStr() == ReasonDeadline
+    check rederived["endRule"].getStr() == EndRuleWallClock
+    check rederived["roundsPlayed"].getInt() ==
+      recorded["roundsPlayed"].getInt()
+    check rederived["roundScores"] == recorded["roundScores"]
+    check rederived["scores"] == recorded["scores"]
+    check rederived["roundEndRules"] == recorded["roundEndRules"]
+
   test "the record stream carries the whole vocabulary":
     let bytes = readFile(episode.path)
+
     var counts = {
       "roundcard": 0, "register": 0, "directive": 0, "result": 0}.toTable
     var i = 0
@@ -399,3 +502,5 @@ suite "the replay":
   test "cleanup":
     removeFile(episode.path)
     check not fileExists(episode.path)
+    removeFile(deadline.path)
+    check not fileExists(deadline.path)

@@ -35,11 +35,13 @@ rewrite them.** In particular:
 
 ## GameVersion
 
-`GameVersion` is `"1"` and it is renumbered from the starter's history on
+`GameVersion` is `"2"` and it is renumbered from the starter's history on
 purpose — no ctf replay re-simulates here. Bump it, with a headline describing
 the RULE that changed, whenever a change makes an existing replay re-simulate
 differently: anything in `gameHash`, anything in the integer motion model,
-anything in the seeded draw order in `src/mpe/field.nim`. A number is claimed
+anything in the seeded draw order in `src/mpe/field.nim`, and anything that
+changes what a recorded RECORD does to the re-simulation (GV2 — the `stop`
+record). A number is claimed
 across branches, so `tools/ci/check_gameversion.sh <base-ref>` fails a PR that
 reuses one for a different rule.
 

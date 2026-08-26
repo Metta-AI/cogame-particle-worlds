@@ -18,7 +18,19 @@ import
 
 const
   GameName* = "particle-worlds"
-  GameVersion* = "1"   ## GV1 (particle worlds): the FIRST version of this game.
+  GameVersion* = "2"   ## GV2: the wall-clock `deadline` stop is RECORDED.
+    ## The engine's 690 s stop banks the round in progress and finishes the
+    ## game from outside `step`, and the same loop iteration records that
+    ## state's `gameHash` — so the tick could not be re-derived, and every
+    ## `deadline` replay mismatched on its last hash and stayed `Playing` in
+    ## the viewer forever. The stop is now written as a `stop` control record
+    ## and applied at playback through the same `applyWallClockStop` the server
+    ## calls (docs/PROTOCOL.md §Chat records). The number changes because a
+    ## GV1 viewer would LOAD a GV2 recording and re-simulate it wrong at the
+    ## stop tick, which is exactly what a version is for; nothing in
+    ## `gameHash`, the integer motion model or the seeded draw order moved.
+    ##
+    ## GV1 (particle worlds): the FIRST version of this game.
     ## Forked from `Metta-AI/coworld-ctf` at its GV44 and renumbered from 1,
     ## because nothing in the starter's GameVersion history describes a
     ## particle-worlds episode: no ctf replay re-simulates here and none should

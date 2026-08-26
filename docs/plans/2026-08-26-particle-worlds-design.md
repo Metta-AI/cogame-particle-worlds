@@ -1075,7 +1075,7 @@ Everything the viewer needs is in the bytes; no server is contacted except S3 fo
 | config JSON | `seed`, `num_agents`, `mapSpec` (the full resolved field geometry), `maxTicks`, `maxGames`, `rounds` (the mode sequence), `turnTicks`, every physics/scoring constant, `players[].name` (real names), `slots[]`, `tokens[]`, `fastMode`, `fullyObservable` |
 | joins | per **seat**: `name` (real policy name), `slot`, `token` |
 | inputs | per **particle** (0..3), on change: the `uint8` actuator mask — the action log |
-| chats | `roundcard` / `register` / `directive` / `fallback` / `budget_guard` / `result` records |
+| chats | `roundcard` / `register` / `directive` / `fallback` / `budget_guard` / `stop` / `result` records |
 | hashes | one `gameHash` per tick — the integrity chain the viewer checks |
 
 The landmark layout, the colour permutation, the mode/role schedule, the goal and the key are all
@@ -1088,7 +1088,8 @@ integrity signal rather than a rendering nit.
 ### Record and event vocabulary
 
 **A. Replay chat records** (written by the server, re-applied at playback into non-hashed sim fields;
-they drive the broadcast feed and `replay_summary.py`, and can never affect the sim):
+they drive the broadcast feed and `replay_summary.py`, and can never affect the sim — with the one
+exception the r2 amendment below records, `stop`):
 
 | `k` | Fields |
 |---|---|
@@ -1097,6 +1098,7 @@ they drive the broadcast feed and `replay_summary.py`, and can never affect the 
 | `directive` | `round`, `mode`, `turn`, `seat`, `alias`, `role`, `source` (`llm`\|`scripted`\|`fallback`), `latency_ms`, `note` (≤ 160 runes), `cogs`:[{`id`, `intent`, `target`, `face`, `symbol`}] |
 | `fallback` | `round`, `turn`, `seat`, `attempt` (1\|2), `cause`, `detail` (≤ 200 runes) |
 | `budget_guard` | `turn`, `remaining_s` |
+| `stop` | `reason` (`deadline`), `rule` (`wall_clock`), `tick` — the engine's wall-clock stop, at the tick it fired. The ONE record playback applies into HASHED state (see the r2 amendment) |
 | `result` | the full results document, written once at episode end (this is what makes the bytes self-sufficient: without it a spectator holding the file reads `results: {}`) |
 
 **B. Derived broadcast events** — `stepEvents` (`broadcast.nim`, retargeted) derives these from state
@@ -1670,3 +1672,30 @@ Beyond the Nim suite, `ci.yml` runs:
   curated pool, `mapkit`, the map editor and the pool-review page), **achievements** (the starter's
   win-gated catalog and its `results.achievements` key are dropped), **audio, 3D, camera cuts**, and
   **any downloaded art asset**.
+
+---
+
+## Amendment — r2 review (2026-08-26)
+
+Recorded by the phase-30 fixer against `reviews/r2-review.md`.
+
+**F1 / checklist item 2 — the wall-clock `deadline` stop is a RECORDED record.** §The replay
+says every chat record is "re-applied at playback into non-hashed sim fields … and can never
+affect the sim". That holds for every record but one. The engine's wall-clock stop
+(§End conditions row 4) banks the round in progress and finishes the game from the server
+loop — outside `sim.step` — and every field it writes (`phase`, `winner`, `isDraw`,
+`gameOverTimer`, `roundsPlayed`, `roundLog`) is in `gameHash`, while the same iteration
+records that state's hash. A wall-clock fact does not follow from sim state, so no
+re-simulation can derive it: without a record the last hash of every `deadline` episode was
+unreachable and playback sat at `Playing` forever.
+
+So the stop is now written as a `stop` chat record at the tick it fires, and applied on both
+sides by one proc — `sim.applyWallClockStop` — the live server as it writes the record,
+`applyReplayEvents` as it reads it back, before the same tick's step. `stop` is the ONE
+load-bearing chat record; every other record stays presentation-only, and the rule that
+"nothing a commander SAYS may move the hash chain" is untouched (the stop is not something a
+commander says). `GameVersion` goes 1 → 2: nothing in `gameHash`, the motion model or the
+seeded draw order moved, but a GV1 viewer would load a GV2 recording and re-simulate the stop
+tick wrong. `tests/test_replay.nim` records a deadline-ended episode and asserts the whole
+hash chain re-derives AND that the re-derived sim ends at the same `GameOver`, winner and
+banked round as the recorded results document.

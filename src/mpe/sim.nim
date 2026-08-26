@@ -2995,6 +2995,57 @@ proc finishGame*(sim: var SimServer, winner: Team, isDraw = false, timeLimitReac
       sim.achievementFocus.add(
         AchievementFocus(id: id, playerIndex: focus))
 
+const StopRecordKind* = "stop"
+  ## The `k` of the ONE control record playback applies into HASHED state.
+
+proc wallClockStopRecord*(sim: SimServer): string =
+  ## The `stop` control record: the engine's wall-clock deadline, written into
+  ## the replay at the tick it fired.
+  ##
+  ## Every other control record is presentation only. This one is
+  ## LOAD-BEARING, and it has to be: the deadline is a wall-clock fact that
+  ## does NOT follow from the sim's state, so a re-simulation cannot re-derive
+  ## when it fired. Without the record the stop banked a round and finished the
+  ## game outside `step`, the same iteration's `writeHash` then described that
+  ## state, and playback — still `Playing` at that tick — mismatched on the
+  ## episode's last hash.
+  $(%*{
+    "k": StopRecordKind,
+    "reason": ReasonDeadline,
+    "rule": EndRuleWallClock,
+    "tick": sim.tickCount
+  })
+
+proc isWallClockStopRecord*(record: string): bool =
+  ## True for the `stop` record above and for nothing else. The substring test
+  ## comes first so the per-tick chat walk does not parse JSON for every
+  ## directive record it passes.
+  if record.len == 0 or record[0] != '{' or
+      ("\"" & StopRecordKind & "\"") notin record:
+    return false
+  try:
+    let node = parseJson(record)
+    node.kind == JObject and node{"k"}.getStr() == StopRecordKind
+  except CatchableError:
+    ## A crafted record is not a stop record; it falls through to the feed.
+    false
+
+proc applyWallClockStop*(sim: var SimServer) =
+  ## Applies the wall-clock deadline stop. Called by the live server as it
+  ## writes the `stop` record, and by playback as it reads that record back —
+  ## ONE implementation, so the hashed state (the banked round, `phase`,
+  ## `winner`, `isDraw`, `gameOverTimer`) is identical on both sides and the
+  ## stop tick's recorded hash re-derives.
+  ##
+  ## The round IN PROGRESS was measured, so it banks from the ticks it actually
+  ## ran and COUNTS toward the mean; rounds never started are excluded from the
+  ## mean rather than scored 0.
+  sim.endReason = ReasonDeadline
+  sim.endRule = EndRuleWallClock
+  if sim.phase == Playing:
+    sim.bankRound(sim.gameTicksElapsed(), EndRuleWallClock)
+  sim.finishGame(Red, isDraw = true)
+
 proc maxTicksReached(sim: SimServer): bool =
   ## Whether the scheduled draw ceiling ends the game this tick. A game
   ## with the grenade barrage configured has NO draw ceiling: past the

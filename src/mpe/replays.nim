@@ -408,9 +408,19 @@ proc applyReplayEvents(replay: var ReplayPlayer, sim: var SimServer) =
     # applying them here would move the hash chain. Everything else is a
     # cog's real in-game shout, hashed state both sides hear. Classic games
     # keep the unconditional apply: every recorded chat there IS a shout.
+    #
+    # The ONE exception is the `stop` record: the engine's wall-clock deadline
+    # is a wall-clock fact no re-simulation can re-derive, so the live server
+    # records it and playback applies it HERE — before this tick's step, the
+    # same order the server used — which is what makes the stop tick's
+    # recorded hash re-derivable and lands playback on the same GameOver,
+    # winner and banked rounds the results document carries.
     if sim.config.numAgents > 0 and
         chat.message.len > 0 and chat.message[0] == '{':
-      sim.pushFeedDirective(chat.message)
+      if isWallClockStopRecord(chat.message):
+        sim.applyWallClockStop()
+      else:
+        sim.pushFeedDirective(chat.message)
     else:
       sim.applyShout(int(chat.player), chat.message)
     inc replay.chatIndex

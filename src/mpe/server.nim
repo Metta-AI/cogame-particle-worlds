@@ -1410,16 +1410,17 @@ proc runServerLoop*(
         (getMonoTime() - episodeStart).inSeconds.int >=
           config.wallClockBudgetSeconds:
       deadlineHit = true
-      sim.endReason = ReasonDeadline
-      sim.endRule = EndRuleWallClock
-      ## The round IN PROGRESS was measured, so it banks from the ticks it
-      ## actually ran and COUNTS toward the mean; rounds never started are
-      ## excluded from the mean rather than scored 0.
-      if sim.phase == Playing:
-        sim.bankRound(sim.gameTicksElapsed(), EndRuleWallClock)
+      ## RECORDED FIRST, then applied. The stop mutates hashed state (the
+      ## banked round, `phase`, `winner`, `isDraw`, `gameOverTimer`) and this
+      ## iteration's `writeHash` below describes the result, so the record is
+      ## what lets playback re-derive that hash: it is written at THIS tick's
+      ## time, which is where `applyReplayEvents` re-applies it — before the
+      ## same tick's step, exactly the order the live loop uses here.
+      replayWriter.writeChat(
+        tickTime(sim.tickCount), 0, sim.wallClockStopRecord())
       echo "wall-clock budget of ", config.wallClockBudgetSeconds,
         "s reached; banking the round in progress and settling the episode"
-      sim.finishGame(Red, isDraw = true)
+      sim.applyWallClockStop()
       quitAfterFrame = true
 
     {.gcsafe.}:

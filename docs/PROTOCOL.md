@@ -181,7 +181,7 @@ server is contacted except S3 for the file.
 | config JSON | `seed`, `num_agents`, `mapSpec` (the full resolved field geometry), `maxTicks`, `maxGames`, `rounds`, `turnTicks`, every physics/scoring constant, `players[].name` (real names), `slots[]`, `tokens[]`, `fastMode`, `fullyObservable` |
 | joins | per seat: `name` (real policy name), `slot`, `token` |
 | inputs | per particle (0..3), on change: the `uint8` actuator mask — the action log |
-| chats | `roundcard` / `register` / `directive` / `fallback` / `budget_guard` / `result` records |
+| chats | `roundcard` / `register` / `directive` / `fallback` / `budget_guard` / `stop` / `result` records |
 | hashes | one `gameHash` per tick — the integrity chain the viewer checks |
 
 ### Chat records
@@ -193,10 +193,16 @@ server is contacted except S3 for the file.
 | `directive` | `round`, `mode`, `turn`, `seat`, `alias`, `role`, `source` (`llm`\|`scripted`\|`fallback`), `latency_ms`, `note`, `cogs`:[{`id`, `intent`, `target`, `face`, `symbol`}] |
 | `fallback` | `round`, `turn`, `seat`, `attempt` (1\|2, the attempts the seat spent), `cause`, `detail` (≤ 200 runes) — exactly ONE per seat per turn, so a count of these records equals `sum(results.fallbackTurns)` |
 | `budget_guard` | `turn`, `remaining_s` |
+| `stop` | `reason` (`deadline`), `rule` (`wall_clock`), `tick` — the engine's wall-clock stop, written at the tick it fired. The ONE record playback applies into hashed state |
 | `result` | the full results document, written once at episode end — this is what makes the bytes self-sufficient |
 
-Chat records are re-applied at playback into **non-hashed** sim fields only: they drive the
-broadcast feed, the radio strip and `tools/replay_summary.py`, and can never affect the simulation.
+Chat records are re-applied at playback into **non-hashed** sim fields — the broadcast feed, the
+radio strip and `tools/replay_summary.py` — with exactly one exception: `stop`. The engine's
+wall-clock deadline is a wall-clock fact that does **not** follow from the sim's state, so no
+re-simulation can derive when it fired; the server records it and playback applies it through the
+same `applyWallClockStop` the server called, at the same tick and before that tick's step. That is
+what makes a `deadline` episode's final recorded hash re-derivable, and what lands the viewer on the
+same `GameOver`, winner and banked rounds the `result` record carries.
 
 The mark layout, the colour permutation, the mode/role schedule, the goal and the key are all
 **re-derived** from the seeded RNG rather than being load-bearing records (the `roundcard` record is
