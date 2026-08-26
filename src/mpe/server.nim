@@ -1412,15 +1412,13 @@ proc runServerLoop*(
       deadlineHit = true
       sim.endReason = ReasonDeadline
       sim.endRule = EndRuleWallClock
-      ## The round IN PROGRESS was measured, so it banks from the ticks it
-      ## actually ran and COUNTS toward the mean; rounds never started are
-      ## excluded from the mean rather than scored 0.
-      if sim.phase == Playing:
-        sim.bankRound(sim.gameTicksElapsed(), EndRuleWallClock)
       echo "wall-clock budget of ", config.wallClockBudgetSeconds,
         "s reached; banking the round in progress and settling the episode"
-      sim.finishGame(Red, isDraw = true)
       quitAfterFrame = true
+      ## The bank and the finish happen AFTER this frame's step and its hash
+      ## (see "the wall-clock settle" below). `endReason`/`endRule` are not in
+      ## gameHash, so setting them here is free; `bankRound` and `finishGame`
+      ## are not.
 
     {.gcsafe.}:
       withLock appState.lock:
@@ -2104,6 +2102,28 @@ proc runServerLoop*(
         if sim.needsReregister:
           break
       prevInputs = lastStepInputs
+
+    # ------------------------------------------------------------------
+    #  The wall-clock settle. `bankRound` appends to `roundLog` and bumps
+    #  `roundsPlayed`, and `finishGame` writes `phase`, `winner`, `isDraw` and
+    #  `gameOverTimer` — ALL of it hashed, and none of it something the
+    #  replayed sim does, because the viewer has no wall clock. So it happens
+    #  here: after this frame's step wrote the tick's hash over a state the
+    #  masks alone produced, and before any further hash can be recorded (the
+    #  loop exits on `quitAfterFrame` at the bottom of this iteration). This is
+    #  the same discipline the `fault` path above follows — mutate, then stop,
+    #  never mutate and then keep hashing. Doing it at the top of the iteration
+    #  instead made the stop tick's recorded hash unreproducible, which the
+    #  viewer reports as a hashMismatchTick on every `deadline` episode.
+    #
+    #  The round IN PROGRESS was measured, so it banks from the ticks it
+    #  actually ran and COUNTS toward the mean; rounds never started are
+    #  excluded from the mean rather than scored 0.
+    # ------------------------------------------------------------------
+    if deadlineHit and sim.phase != GameOver:
+      if sim.phase == Playing:
+        sim.bankRound(sim.gameTicksElapsed(), EndRuleWallClock)
+      sim.finishGame(Red, isDraw = true)
 
     let rewardPacket = sim.buildRewardPacket()
 

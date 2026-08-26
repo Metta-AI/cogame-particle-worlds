@@ -113,6 +113,118 @@ proc recordEpisode(rounds: seq[Mode], ticks: int): tuple[
   writer.closeReplayWriter()
   (path, sim, records)
 
+proc recordDeadlineEpisode(
+  stopAfterTicks: int, settleBeforeHash: bool
+): tuple[path: string, sim: SimServer] =
+  ## The WALL-CLOCK STOP, recorded. The server's engine deadline banks the
+  ## round in progress and finishes the game from OUTSIDE `sim.step`, and both
+  ## calls write hashed state (`roundLog`, `roundsPlayed`, `phase`, `winner`,
+  ## `isDraw`, `gameOverTimer`) that the replayed sim — which has no wall clock
+  ## — never reproduces. It is therefore only safe AFTER the tick's hash is
+  ## recorded and before any further hash, which is the order `server.nim`'s
+  ## "wall-clock settle" block implements.
+  ##
+  ## `settleBeforeHash` reproduces the WRONG order (settle at the top of the
+  ## iteration, then step and hash) so the test can prove it is caught rather
+  ## than assuming it would be.
+  var config = variantConfig(@[modeSpread, modeDeceive, modeCrypto, modeTag])
+  config.maxTicks = 540
+  config.turnSpacingMs = 0
+  config.startWaitTicks = 0
+  config.gameOverTicks = 24
+  var sim = initSimServer(config)
+  let path = getTempDir() /
+    ("pw-deadline-" & $getCurrentProcessId() & "-" &
+     (if settleBeforeHash: "bad" else: "good") & ".bitreplay")
+  var writer = openReplayWriter(path, config.configJson())
+  for seat in 0 ..< FixtureSeats:
+    sim.seatNames[seat] = "policy-" & $seat
+    sim.seatPolicyKind[seat] = "scripted"
+  var
+    ctl = initControlState(sim)
+    orders = newSeq[CogOrder](4)
+    have = false
+    inputs = newSeq[InputState](sim.players.len)
+    prev = newSeq[InputState](sim.players.len)
+  while true:
+    if sim.phase == Lobby and sim.players.len < FixtureSeats:
+      for seat in 0 ..< FixtureSeats:
+        discard sim.addPlayer(
+          config.slots[seat].name, seat, config.slots[seat].token)
+        writer.writeJoin(tickTime(sim.tickCount), seat,
+          config.slots[seat].name, seat, config.slots[seat].token)
+        while writer.lastMasks.len < sim.players.len:
+          writer.lastMasks.add(0)
+      inputs = newSeq[InputState](sim.players.len)
+      prev = newSeq[InputState](sim.players.len)
+      ctl = initControlState(sim)
+      have = false
+    let stopping = sim.phase == Playing and sim.gameTicksElapsed() >= stopAfterTicks
+    if stopping and settleBeforeHash:
+      ## The pre-fix order: mutate first, then step and record a hash over the
+      ## mutated state.
+      sim.endReason = ReasonDeadline
+      sim.endRule = EndRuleWallClock
+      sim.bankRound(sim.gameTicksElapsed(), EndRuleWallClock)
+      sim.finishGame(Red, isDraw = true)
+    if sim.phase == Playing:
+      let turn = sim.gameTicksElapsed() div config.turnTicks
+      if sim.gameTicksElapsed() mod config.turnTicks == 0:
+        for seat in 0 ..< 4:
+          let directive = scriptedDirective(ctl, sim, blDrifter, @[seat])
+          orders[seat] = directive.orders[0]
+          sim.installSymbol(seat, orders[seat].symbol, turn)
+          sim.recordHoldAnchor(seat)
+        have = true
+      ctl.observeEnemies(sim)
+      if have:
+        for seat in 0 ..< 4:
+          inputs[seat] = decodeInputMask(
+            ctl.compileMask(sim, orders[seat], seat))
+    else:
+      for seat in 0 ..< inputs.len:
+        inputs[seat] = InputState()
+    for seat in 0 ..< sim.players.len:
+      writer.writeInputMaskChange(
+        tickTime(sim.tickCount), seat, encodeInputMask(inputs[seat]))
+    sim.step(inputs, prev)
+    prev = inputs
+    writer.writeHash(uint32(sim.tickCount), sim.gameHash())
+    if stopping:
+      if not settleBeforeHash:
+        ## The shipped order: the tick's hash is over a state the recorded
+        ## masks alone produced, and the settle lands after it with no further
+        ## hash recorded.
+        sim.endReason = ReasonDeadline
+        sim.endRule = EndRuleWallClock
+        sim.bankRound(sim.gameTicksElapsed(), EndRuleWallClock)
+        sim.finishGame(Red, isDraw = true)
+      break
+  writer.writeChat(tickTime(sim.tickCount), 0, resultRecord(sim))
+  writer.closeReplayWriter()
+  (path, sim)
+
+proc replayMismatchTick(path: string): int =
+  ## Re-parses a recorded episode and re-derives it tick by tick, returning the
+  ## first tick whose recorded hash the replayed sim could not reproduce (-1
+  ## when every hash re-derived).
+  let data = parseReplayBytes(readFile(path))
+  var initialized = initReplayRuntime(
+    data, mismatchQuit = false, gameEventLoggingEnabled = false)
+  var
+    game = move(initialized.sim)
+    player = move(initialized.player)
+    tracker = move(initialized.tracker)
+    frames = 0
+  while frames < data.hashes.len + 64:
+    discard player.advanceReplayFrame(game, tracker, @[], @[])
+    inc frames
+    if player.hashMismatchTick >= 0:
+      break
+    if game.tickCount >= int(data.hashes[^1].tick):
+      break
+  player.hashMismatchTick
+
 suite "the replay":
 
   var episode = recordEpisode(
@@ -349,6 +461,29 @@ suite "the replay":
 
   test "the recorded replay stays well under a megabyte":
     check getFileSize(episode.path) < 1_000_000
+
+  test "a DEADLINE episode's replay re-derives every hash":
+    ## The wall-clock stop is a first-class end condition (design §End
+    ## conditions), and a hash the viewer cannot re-derive is a real integrity
+    ## signal — so the stop tick has to be reproducible from the recorded masks
+    ## alone, exactly like every other tick.
+    let stopped = recordDeadlineEpisode(200, settleBeforeHash = false)
+    let results = parseJson(stopped.sim.particleResultsJson())
+    check results["reason"].getStr() == ReasonDeadline
+    check results["endRule"].getStr() == EndRuleWallClock
+    check results["roundsPlayed"].getInt() == 1
+    check stopped.sim.roundLog[0].endRule == EndRuleWallClock
+    check replayMismatchTick(stopped.path) == -1
+    removeFile(stopped.path)
+
+  test "banking the deadline round before the tick's hash is caught":
+    ## The control for the test above: recording a hash over state that
+    ## `bankRound`/`finishGame` mutated outside the step really does diverge at
+    ## playback, so the assertion above is testing the ordering rather than
+    ## re-deriving something that could never fail.
+    let broken = recordDeadlineEpisode(200, settleBeforeHash = true)
+    check replayMismatchTick(broken.path) >= 0
+    removeFile(broken.path)
 
   test "cleanup":
     removeFile(episode.path)
