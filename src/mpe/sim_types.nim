@@ -513,8 +513,6 @@ const
   DefaultTurnBudgetMs* = 10_000 ## hard monotonic cap around one whole turn.
   DefaultAttempt1Ms* = 6000     ## first parallel batch deadline (6 s exactly).
   DefaultRetryMs* = 3000        ## single retry batch deadline (6 + 3 <= 10).
-  DefaultTurnSpacingMs* = 5000  ## wall-clock floor between batch STARTS; holds
-                                ## 2 seats under the sidecar's 30 req/min cap.
   DefaultWallClockBudgetSeconds* = 690
                                 ## engine hard stop, 57.5% of the assumed 1200 s
                                 ## episodeTimeoutSeconds (the 60% pin).

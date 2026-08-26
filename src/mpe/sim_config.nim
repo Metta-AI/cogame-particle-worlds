@@ -72,7 +72,7 @@ proc defaultGameConfig*(): GameConfig =
     turnBudgetMs: DefaultTurnBudgetMs,
     attempt1Ms: DefaultAttempt1Ms,
     retryMs: DefaultRetryMs,
-    turnSpacingMs: DefaultTurnSpacingMs,
+    turnSpacingMs: DefaultParticleTurnSpacingMs,
     wallClockBudgetSeconds: DefaultWallClockBudgetSeconds,
     model: "",
     maxOutputTokens: DefaultMaxOutputTokens,
