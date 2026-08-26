@@ -13,7 +13,7 @@ import std/[atomics, json, locks, monotimes, os, strutils, times, unicode,
             unittest]
 import bitworld/spriteprotocol
 import mummy, mummy/routers
-import ../src/mpe/[sim, control, directives, baselines, decide, llm]
+import ../src/mpe/[sim, control, directives, baselines, decide, llm, server]
 import fixture
 
 type
@@ -355,3 +355,87 @@ suite "the turn loop":
     putEnv("AWS_ENDPOINT_URL_BEDROCK_RUNTIME",
            "http://127.0.0.1:" & $FakePort)
     putEnv("AWS_BEARER_TOKEN_BEDROCK", "fake-token")
+
+  test "a never-connecting seat is REPORTED and all four rounds still play":
+    ## design note: a lobby no-show is charged to the seat that caused it
+    ## (COGAME_PLAYER_FAILURE_URI -> player_failure.json, lowest missing slot)
+    ## and the episode is NOT abandoned -- the missing particle joins as a
+    ## trusted bot on the published baseline and every round runs to full time.
+    let path = getTempDir() / ("pw-failure-" & $getCurrentProcessId() & ".json")
+    removeFile(path)
+    putEnv("COGAME_PLAYER_FAILURE_URI", "file://" & path)
+
+    var config = fixtureConfig()
+    config.lobbyJoinTimeoutTicks = 24
+    config.startWaitTicks = 240
+    var sim = initSimServer(config)
+    ## Three of the four seats connect; slot 3 never does.
+    for seat in 0 ..< 3:
+      discard sim.addPlayer(
+        config.slots[seat].name, seat, config.slots[seat].token)
+    var lobby = newSeq[InputState](sim.players.len)
+    var waited = 0
+    while not sim.lobbyJoinTimedOut() and waited < 600:
+      sim.step(lobby, lobby)
+      inc waited
+    check sim.lobbyJoinTimedOut()
+    check sim.nextPlayerSlot() == 3
+
+    ## What the server does at that point (server.nim's squad-construction
+    ## block): declare the no-show, then force-start with the missing cog
+    ## added as a trusted bot.
+    declarePlayerFailure(sim.nextPlayerSlot(),
+      "player slot 3 never joined the lobby within " &
+        $config.lobbyJoinTimeoutTicks & " lobby ticks")
+    delEnv("COGAME_PLAYER_FAILURE_URI")
+    check fileExists(path)
+    let declared = parseJson(readFile(path))
+    check declared["failed_policy_index"].getInt() == 3
+    check "never joined the lobby" in declared["message"].getStr()
+    removeFile(path)
+
+    for order in sim.players.len ..< sim.totalCogs():
+      discard sim.addPlayer("cog-" & $order, order, "", trusted = true)
+    check sim.players.len == sim.totalCogs()
+    sim.startGame()
+
+    ## And the episode plays out: four rounds, complete / full_time.
+    var
+      ctl = initControlState(sim)
+      orders = newSeq[CogOrder](4)
+      inputs = newSeq[InputState](sim.players.len)
+      have = false
+      played = 0
+    while played < 4:
+      if sim.phase == Lobby and sim.players.len < FixtureSeats:
+        for seat in 0 ..< 3:
+          discard sim.addPlayer(
+            config.slots[seat].name, seat, config.slots[seat].token)
+        for order in sim.players.len ..< sim.totalCogs():
+          discard sim.addPlayer("cog-" & $order, order, "", trusted = true)
+        sim.startGame()
+        inputs = newSeq[InputState](sim.players.len)
+        ctl = initControlState(sim)
+        have = false
+      if sim.phase == Playing:
+        if sim.gameTicksElapsed() mod config.turnTicks == 0:
+          for seat in 0 ..< 4:
+            orders[seat] = scriptedDirective(ctl, sim, blDrifter, @[seat]).orders[0]
+            sim.recordHoldAnchor(seat)
+          have = true
+        ctl.observeEnemies(sim)
+        if have:
+          for seat in 0 ..< 4:
+            inputs[seat] = decodeInputMask(ctl.compileMask(sim, orders[seat], seat))
+      else:
+        for seat in 0 ..< inputs.len:
+          inputs[seat] = InputState()
+      let before = sim.phase
+      sim.step(inputs, inputs)
+      if before != GameOver and sim.phase == GameOver:
+        inc played
+    sim.seatNames = ["a", "b", "c", "d"]
+    let results = parseJson(sim.particleResultsJson())
+    check results["roundsPlayed"].getInt() == 4
+    check results["reason"].getStr() == ReasonComplete
+    check results["endRule"].getStr() == EndRuleFullTime

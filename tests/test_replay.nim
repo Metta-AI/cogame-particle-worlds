@@ -292,8 +292,42 @@ suite "the replay":
       i = i + 1
     check counts["roundcard"] == 4
     check counts["register"] == 4 * 4     ## re-registered on every round switch
-    check counts["directive"] >= 4
     check counts["result"] == 1
+    ## ONE `directive` PER SEAT PER TURN, which is the claim the whole
+    ## simultaneous-decision design rests on -- not "at least four". The
+    ## records carry (round, turn, seat), so count the triples rather than the
+    ## occurrences: a seat commanded twice in a turn, or skipped, fails here.
+    let turnsPerRound = 540 div variantConfig(@[modeSpread]).turnTicks
+    var seen: Table[string, int]
+    var at = 0
+    while true:
+      at = bytes.find("{\"k\":\"directive\"", at)
+      if at < 0:
+        break
+      var depth = 0
+      var stop = at
+      for j in at ..< bytes.len:
+        if bytes[j] == '{': inc depth
+        elif bytes[j] == '}':
+          dec depth
+          if depth == 0:
+            stop = j
+            break
+      let record = parseJson(bytes[at .. stop])
+      let key = $record["round"].getInt() & ":" & $record["turn"].getInt() &
+        ":" & $record["seat"].getInt()
+      seen[key] = seen.getOrDefault(key) + 1
+      at = stop + 1
+    check counts["directive"] == 4 * turnsPerRound * FixtureSeats
+    check seen.len == counts["directive"]        ## every triple distinct
+    for round in 1 .. 4:
+      for turn in 0 ..< turnsPerRound:
+        for seat in 0 ..< FixtureSeats:
+          let key = $round & ":" & $turn & ":" & $seat
+          if seen.getOrDefault(key) != 1:
+            echo "directive count for round ", round, " turn ", turn,
+              " seat ", seat, " = ", seen.getOrDefault(key)
+          check seen.getOrDefault(key) == 1
 
   test "the derived event stream carries every kind particle worlds emits":
     var config = variantConfig(@[modeSpread, modeDeceive, modeCrypto, modeTag])
@@ -320,6 +354,18 @@ suite "the replay":
         ctl = initControlState(sim)
         have = false
       if sim.phase == Playing:
+        ## One real pursuer contact inside the TAG round, so the `tag` beat
+        ## comes off the same walk as every other kind. A drifter pack does
+        ## not reliably catch a faster evader inside 540 ticks -- that is the
+        ## point of the mode -- so the contact is staged rather than waited
+        ## for; the beat, its throttle and its alias are the sim's own.
+        if sim.mode == modeTag and sim.gameTicksElapsed() == 120:
+          let evader = sim.seatWithRole(0)
+          for seat in 0 ..< 4:
+            if seat != evader:
+              sim.players[seat].x = sim.players[evader].x + 4
+              sim.players[seat].y = sim.players[evader].y
+              break
         if sim.gameTicksElapsed() mod config.turnTicks == 0:
           for seat in 0 ..< 4:
             let directive = scriptedDirective(ctl, sim, blDrifter, @[seat])
@@ -352,9 +398,12 @@ suite "the replay":
           break
 
     echo "derived kinds: ", kinds
-    for required in ["roundstart", "word", "firstword", "bump", "decode",
-                     "roundover"]:
+    for required in ["roundstart", "word", "firstword", "bump", "onpoint",
+                     "decode", "tag", "roundover"]:
       check required in kinds
+    ## And every one of the five SCRUBBER beat kinds was placed by the walk.
+    for beat in ["roundstart", "firstword", "onpoint", "tag", "roundover"]:
+      check beat in beats
     ## `tag` fires when a pursuer really touches the evader, which a `drifter`
     ## pack does not reliably manage against a faster evader inside 540 ticks
     ## (that is the point of the mode). Its detector is exercised directly.

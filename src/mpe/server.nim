@@ -1152,7 +1152,7 @@ proc buildRewardPacket(sim: SimServer): string {.measure.} =
       result.addStatLine("deaths", identity, account.deaths)
       result.addStatLine("captures", identity, account.captures)
 
-proc declarePlayerFailure(slot: int, message: string) =
+proc declarePlayerFailure*(slot: int, message: string) =
   ## Publishes the game-declared terminal player failure the platform runner
   ## polls for (COGAME_PLAYER_FAILURE_URI -> player_failure.json), so a lobby
   ## no-show or mid-form drop is charged to the seat that caused it instead of
