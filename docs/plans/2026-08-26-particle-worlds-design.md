@@ -480,9 +480,13 @@ every mask), so the hazard does not exist here and the player harness sends `0x8
 received frame.
 
 **Budget guard (early settle without shortening the episode).** At the start of each turn, if
-`elapsed + 2 * turnBudgetSeconds > wallClockBudgetSeconds`, the LLM is switched off for every
-remaining turn and the episode finishes on the scripted layer (microseconds per turn), so it ends
-`complete/full_time` rather than `deadline`. A `budget_guard` record names the turn it fired.
+`elapsed + 2 * (turnSpacingSeconds + turnBudgetSeconds) > wallClockBudgetSeconds`, the LLM is
+switched off for every remaining turn and the episode finishes on the scripted layer (microseconds
+per turn), so it ends `complete/full_time` rather than `deadline`. A full turn is the rate floor PLUS
+the calls — the floor holds batch starts `turnSpacingMs` apart and the monotonic budget clocks the
+calls from the moment the wait ends — so the worst single turn costs 9 s + 10 s at the shipped
+settings, and reserving two of THOSE is what makes the guard's margin over the 690 s stop real
+rather than nominal. A `budget_guard` record names the turn it fired.
 
 **Degrade, never hang.** Every wait is bounded: the two batch deadlines, the outer per-turn monotonic
 deadline, `lobbyJoinTimeoutTicks` on the connect wait, mummy's socket timeouts on the serve thread

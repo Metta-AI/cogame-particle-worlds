@@ -381,8 +381,16 @@ proc turn*(
   # stop, switch the LLM off for the rest of the episode and finish on the
   # scripted layer (microseconds per turn), so the episode ends
   # complete/full_time instead of deadline.
+  #
+  # A full turn is the rate floor PLUS the calls: the floor holds batch STARTS
+  # `turnSpacingMs` apart and the monotonic budget then clocks `turnBudgetMs`
+  # of calls from the moment the wait ends, so the worst single turn costs
+  # 9 s + 10 s = 19 s, not 10 s. Reserving 2 x 10 s left the last callable turn
+  # ending ~2 s inside the 690 s stop; reserving 2 x 19 s makes the guard's
+  # margin the one its expression claims.
   if not engine.llmOff:
-    let turnSeconds = (sim.config.turnBudgetMs + 999) div 1000
+    let turnSeconds =
+      (sim.config.turnSpacingMs + sim.config.turnBudgetMs + 999) div 1000
     if elapsedSeconds + 2 * turnSeconds > sim.config.wallClockBudgetSeconds:
       engine.llmOff = true
       result.add(budgetGuardRecord(

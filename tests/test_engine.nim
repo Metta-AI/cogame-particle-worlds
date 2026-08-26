@@ -320,7 +320,8 @@ suite "the turn loop":
     var sim = seatedSim(config)
     var engine = llmEngine(sim)
     resetWindows()
-    ## elapsed + 2 * turnBudgetSeconds > wallClockBudgetSeconds fires it.
+    ## elapsed + 2 * (turnSpacingMs + turnBudgetMs) > wallClockBudgetSeconds
+    ## fires it; the fixture's rate floor is 0, so that is 25 + 2 * 10 > 30.
     let records = engine.turn(sim, 5, 10, 25)
     check engine.llmOff
     check recordedWindows().len == 0        ## no call was made at all
