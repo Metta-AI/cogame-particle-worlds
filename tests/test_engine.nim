@@ -252,6 +252,48 @@ suite "the turn loop":
     let elapsed = (getMonoTime() - began).inMilliseconds.int
     check elapsed >= spaced.turnSpacingMs
 
+  test "the rate floor never eats the single retry":
+    ## The shipped variants hold batch STARTS turnSpacingMs (9 s) apart inside
+    ## a turnBudgetMs (10 s) per-turn cap. While the floor's sleep was clocked
+    ## INSIDE that cap, a turn that slept and then timed out attempt 1 was
+    ## already past the deadline, so it wrote a budget-exhausted record and
+    ## broke: the retry the acceptance checklist requires was never issued at
+    ## the shipped settings. Scaled-down here (1.2 s floor, two 1 s deadlines,
+    ## a 2 s cap) against a provider that never answers in time.
+    var config = fixtureConfig(@[modeSpread])
+    config.turnSpacingMs = 1200
+    config.attempt1Ms = 1000
+    config.retryMs = 1000
+    config.turnBudgetMs = 2000
+    var sim = seatedSim(config)
+    var engine = llmEngine(sim)
+    ## Turn 0 starts the spacing clock; turn 1 is the one that pays the floor.
+    discard engine.turn(sim, 0, 10, 0)
+    resetWindows()
+    holdMs.store(4000)            ## every call outlives both deadlines
+    let spacedBegan = getMonoTime()
+    let spacedRecords = engine.turn(sim, 1, 10, 0)
+    let spacedElapsed = (getMonoTime() - spacedBegan).inMilliseconds.int
+    ## The fake records a window when it finishes sleeping, so let the eight
+    ## handlers drain before counting them.
+    holdMs.store(0)
+    for _ in 0 ..< 150:
+      if recordedWindows().len >= 8:
+        break
+      sleep(100)
+    ## The floor really was paid ...
+    check spacedElapsed >= config.turnSpacingMs
+    ## ... the whole turn still cost at most the floor plus the budget ...
+    check spacedElapsed < config.turnSpacingMs + config.turnBudgetMs + 1000
+    ## ... and BOTH batches went out: attempt 1 and exactly one retry.
+    check recordedWindows().len == 8
+    ## Nothing was dropped for want of budget.
+    for record in spacedRecords:
+      check "per-turn budget exhausted" notin record
+    for seat in 0 ..< 4:
+      check engine.haveDirective[seat]
+      check engine.directives[seat].orders.len == 1
+
   test "the budget guard switches to scripted and records the turn":
     var config = fixtureConfig(@[modeSpread])
     config.wallClockBudgetSeconds = 30

@@ -358,7 +358,9 @@ proc turn*(
   let
     roundIndex = sim.roundIndex + 1
     budget = initDuration(milliseconds = max(1, sim.config.turnBudgetMs))
-    turnStart = getMonoTime()
+  ## The per-turn monotonic deadline. It clocks the CALLS, and it is (re)started
+  ## below, after the rate floor's wait -- see the rate floor for why.
+  var turnStart = getMonoTime()
   ## Throttle state is PER TURN: a daily-token 429 on turn k says nothing
   ## about turn k+1 (the sidecar's window may have rolled), so the flag is
   ## cleared here and only suppresses this turn's retry.
@@ -423,6 +425,19 @@ proc turn*(
   if open.len > 0:
     engine.lastBatchStart = getMonoTime()
     engine.batchStarted = true
+    # The rate floor is a WAIT, not work, so the per-turn budget starts HERE,
+    # when the first batch of the turn does. It has to: `turnBudgetMs` is the
+    # cap sim_config validates `attempt1Ms + retryMs` against (10 000 against
+    # 6000 + 3000 on every shipped variant), and the floor is 9000 ms of the
+    # same window. Clocking the sleep inside the budget left roughly 3.5 s of
+    # it in steady state, so a turn whose attempt 1 TIMED OUT was already past
+    # the deadline and broke out with a budget-exhausted record: the single
+    # retry the acceptance checklist requires could never be issued at the
+    # shipped settings. Batch STARTS are still held turnSpacingMs apart -- that
+    # is what the rate floor promises the sidecar -- so a turn still costs at
+    # most max(turnSpacingMs, turnBudgetMs) of wall clock and 40 turns still
+    # settle far inside the 690 s engine stop.
+    turnStart = engine.lastBatchStart
 
   # --- up to two PARALLEL batches ------------------------------------------
   var attempt = 0
