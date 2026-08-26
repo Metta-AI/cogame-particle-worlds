@@ -156,6 +156,30 @@ jobs:
           done
           exit "${fail}"
 
+      - name: Grid-tune the baseline's control parameters
+        # Checklist item 7's second half: the baseline's parameters were tuned
+        # with a GRID HARNESS, not guessed. tools/tune_baselines.nim sweeps the
+        # two continuous, role-owned knobs (shadowStandoffPx, evadeProbePx)
+        # against the score of the role that uses each, over whole all-drifter
+        # episodes at three seeds, and --check fails the job if a shipped value
+        # is not at its grid optimum. The table is kept as an artifact so the
+        # tuning is readable rather than asserted. ~15 s in release.
+        run: |
+          set -euo pipefail
+          nim c -d:release --hints:off --path:src -o:/tmp/tune_baselines \
+            tools/tune_baselines.nim
+          /tmp/tune_baselines --check --out "$PWD/baseline-sweep.md"
+          cat "$PWD/baseline-sweep.md" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the baseline sweep table
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: baseline-sweep
+          path: baseline-sweep.md
+          if-no-files-found: warn
+          retention-days: 14
+
   # ---------------------------------------------------------------------
   # Packaging smoke: the production image builds, and one real episode runs
   # end to end in raw docker with the certification fixture's seat mix.

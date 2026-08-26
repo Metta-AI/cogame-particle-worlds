@@ -207,6 +207,23 @@ suite "the control layer and the scripted baselines":
     sim.players[seat].x = clamp(moved.x + 200, 0, MapWidth - 1)
     check ctl.goalFor(sim, order, seat) == moved
 
+  test "the baseline's control parameters come from a GRID HARNESS":
+    ## Checklist item 7: "The baseline's parameters were tuned with a grid
+    ## harness, not guessed." tools/tune_baselines.nim is that harness -- it
+    ## sweeps the two continuous, role-owned knobs against the score of the
+    ## role that uses each and fails when a shipped value is off its grid
+    ## optimum -- and ci.yml runs it with --check on every push, so the claim
+    ## is enforced rather than recorded. This test pins the wiring; the harness
+    ## itself does the measuring.
+    let harness = sourceOf("tools/tune_baselines.nim")
+    check "shadowStandoffPx" in harness
+    check "evadeProbePx" in harness
+    check "--check" in harness
+    let ci = sourceOf(".github/workflows/ci.yml")
+    check "tools/tune_baselines.nim" in ci
+    check "tune_baselines --check" in ci
+    check "baseline-sweep" in ci
+
   test "drifter x 4 completes, covers >= 80% in spread, and beats beeline":
     proc play(baseline: Baseline, rounds: seq[Mode]): tuple[
         mean: int, cover: int, bobOnGoal: bool, played: int] =
