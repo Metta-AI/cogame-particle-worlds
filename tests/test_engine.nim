@@ -286,25 +286,33 @@ suite "the turn loop":
     let spacedBegan = getMonoTime()
     let spacedRecords = engine.turn(sim, 1, 10, 0)
     let spacedElapsed = (getMonoTime() - spacedBegan).inMilliseconds.int
-    ## The fake records a window when it finishes sleeping, so let the eight
-    ## handlers drain before counting them.
     holdMs.store(0)
-    for _ in 0 ..< 150:
-      if recordedWindows().len >= 8:
-        break
-      sleep(100)
     ## The floor really was paid ...
     check spacedElapsed >= config.turnSpacingMs
-    ## ... the whole turn still cost at most the floor plus the budget ...
+    ## ... and the whole turn still cost at most the floor plus the budget, so
+    ## the fix did not buy the retry by overrunning.
     check spacedElapsed < config.turnSpacingMs + config.turnBudgetMs + 1000
-    ## ... and BOTH batches went out: attempt 1 and exactly one retry.
-    check recordedWindows().len == 8
-    ## Nothing was dropped for want of budget.
+    ## BOTH batches went out. The seat-turn's one record is stamped with the
+    ## attempts the seat SPENT: 2 means attempt 1 timed out and the retry was
+    ## issued anyway. With the floor inside the budget this read `attempt: 1`
+    ## with detail "per-turn budget exhausted before attempt 2" -- the retry
+    ## the checklist requires, silently skipped.
+    var spacedFallbacks = 0
     for record in spacedRecords:
-      check "per-turn budget exhausted" notin record
+      let node = parseJson(record)
+      if node["k"].getStr() == "fallback":
+        inc spacedFallbacks
+        check node["attempt"].getInt() == 2
+        check node["cause"].getStr() == "timeout"
+        check "per-turn budget exhausted" notin node["detail"].getStr()
+    check spacedFallbacks == 4
     for seat in 0 ..< 4:
       check engine.haveDirective[seat]
       check engine.directives[seat].orders.len == 1
+    ## Let the hung provider's queued handlers drain before the next test reads
+    ## the request windows.
+    sleep(1500)
+    resetWindows()
 
   test "the budget guard switches to scripted and records the turn":
     var config = fixtureConfig(@[modeSpread])
