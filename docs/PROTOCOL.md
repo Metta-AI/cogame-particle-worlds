@@ -191,7 +191,7 @@ server is contacted except S3 for the file.
 | `register` | `seat`, `alias`, `colour`, `policy` (≤ 48 runes), `kind` (`llm`\|`scripted`), `baseline` |
 | `roundcard` | `round`, `mode`, `roles` (4 role names, seat order), `goal`, `goal_colour`, `key` (4 `[symbol, colour]` pairs, `null` outside `crypto`), `marks` (4 `[x, y, colour]`) |
 | `directive` | `round`, `mode`, `turn`, `seat`, `alias`, `role`, `source` (`llm`\|`scripted`\|`fallback`), `latency_ms`, `note`, `cogs`:[{`id`, `intent`, `target`, `face`, `symbol`}] |
-| `fallback` | `round`, `turn`, `seat`, `attempt` (1\|2), `cause`, `detail` (≤ 200 runes) |
+| `fallback` | `round`, `turn`, `seat`, `attempt` (1\|2, the attempts the seat spent), `cause`, `detail` (≤ 200 runes) — exactly ONE per seat per turn, so a count of these records equals `sum(results.fallbackTurns)` |
 | `budget_guard` | `turn`, `remaining_s` |
 | `result` | the full results document, written once at episode end — this is what makes the bytes self-sufficient |
 

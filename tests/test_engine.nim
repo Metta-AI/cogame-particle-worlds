@@ -161,6 +161,7 @@ suite "the turn loop":
     ## Two batches of four: attempt 1 and exactly ONE retry.
     check recordedWindows().len == 8
     var fallbacks = 0
+    var seatsSeen: set[uint8]
     for record in records:
       let node = parseJson(record)
       if node["k"].getStr() == "fallback":
@@ -168,7 +169,15 @@ suite "the turn loop":
         check node["cause"].getStr() in
           ["parse_error", "timeout", "transport_error"]
         check node["detail"].getStr().runeLen <= MaxFallbackDetailRunes
-    check fallbacks >= 4
+        ## ONE authoritative record per seat-turn, stamped with the number of
+        ## attempts the seat actually spent. `results.fallbackTurns` counts
+        ## seat-turns, so a stream with two or three records per seat-turn made
+        ## replay_summary.py's `fallbacks` a different number from it.
+        check node["attempt"].getInt() == 2
+        let seat = uint8(node["seat"].getInt())
+        check seat notin seatsSeen
+        seatsSeen.incl(seat)
+    check fallbacks == 4
     for seat in 0 ..< 4:
       check engine.directives[seat].source == dsFallback
       check engine.directives[seat].orders.len == 1
@@ -192,7 +201,10 @@ suite "the turn loop":
       if node["k"].getStr() == "fallback" and
           node["cause"].getStr() == "throttled":
         inc throttled
-    check throttled >= 4
+        ## The retry never went out, so the seat spent exactly one attempt.
+        check node["attempt"].getInt() == 1
+    ## One record per seat, not one per attempt plus a tail.
+    check throttled == 4
     for seat in 0 ..< 4:
       check engine.directives[seat].source == dsFallback
 

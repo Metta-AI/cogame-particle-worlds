@@ -440,15 +440,27 @@ proc turn*(
     turnStart = engine.lastBatchStart
 
   # --- up to two PARALLEL batches ------------------------------------------
+  ## ONE `fallback` record per seat per turn, written by the tail block below.
+  ## Each failed attempt records WHY here instead of emitting its own record:
+  ## `results.fallbackTurns` counts seat-turns, so a stream that carried two or
+  ## three records for one seat-turn (and, on the budget-exhausted path, two
+  ## records both stamped attempt 2 with different causes) made
+  ## replay_summary.py's `fallbacks` disagree with it and phase 60 unable to
+  ## read either. The record's `attempt` is now how many attempts the seat
+  ## actually spent, 1 or 2, and its `cause` is the one that ended the turn.
+  var
+    lastCause = newSeq[string](engine.seats.len)
+    lastDetail = newSeq[string](engine.seats.len)
+    attemptsSpent = newSeq[int](engine.seats.len)
   var attempt = 0
   while open.len > 0 and attempt < 2:
     if engine.client.disabled:
       break
     if getMonoTime() - turnStart >= budget:
       for seat in open:
-        result.add(fallbackRecord(
-          roundIndex, turnIndex, seat, attempt + 1, "timeout",
-          "per-turn budget exhausted before attempt " & $(attempt + 1)))
+        lastCause[seat] = "timeout"
+        lastDetail[seat] =
+          "per-turn budget exhausted before attempt " & $(attempt + 1)
       break
     let deadlineMs =
       if attempt == 0: sim.config.attempt1Ms else: sim.config.retryMs
@@ -505,8 +517,9 @@ proc turn*(
           ## "falling back (parse_error)" lines for an episode whose only
           ## fault was a daily-token cap.
           cause = "throttled"
-        result.add(fallbackRecord(
-          roundIndex, turnIndex, seat, attempt + 1, cause, error.msg))
+        lastCause[seat] = cause
+        lastDetail[seat] = error.msg
+        attemptsSpent[seat] = attempt + 1
         echo "particle-worlds llm: seat ", seat, " attempt ", attempt + 1,
           " failed, falling back if it fails again: ", error.msg
         stillOpen.add(seat)
@@ -532,9 +545,16 @@ proc turn*(
         "no_credentials"
       elif engine.llmOff: "budget_guard"
       elif engine.client.throttled: "throttled"
+      elif lastCause[seat].len > 0: lastCause[seat]
       else: "parse_error"
-    result.add(fallbackRecord(roundIndex, turnIndex, seat, 2, cause,
-      "seat fell back to the drifter directive"))
+    let detail =
+      if lastDetail[seat].len > 0: lastDetail[seat]
+      else: "seat fell back to the drifter directive"
+    ## The one authoritative record for this seat-turn: `attempt` is how many
+    ## attempts it spent (1 when the retry never went out -- a throttle, a
+    ## disabled client or an exhausted budget -- 2 when it did).
+    result.add(fallbackRecord(roundIndex, turnIndex, seat,
+      max(1, attemptsSpent[seat]), cause, detail))
     ## "falling back" is the phrase phase 60 greps the GAME log for.
     echo "particle-worlds llm: seat ", seat, " falling back to drifter (", cause,
       ") on turn ", turnIndex
