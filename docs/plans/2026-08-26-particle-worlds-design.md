@@ -1188,8 +1188,12 @@ neither. The `coworld-replay` postMessage bridge's `ready` is posted from a call
 
 ### Chrome provenance
 
-- **`client/chrome_common.js` is copied byte-for-byte from coworld-ctf.** Not edited, not
-  reformatted; `tests/test_viewer.nim` pins its sha256. Everything particle-worlds adds lives in the
+- **`client/chrome_common.js` is copied byte-for-byte from coworld-ctf** apart from ONE named,
+  minimal patch: line 72, `var WIRE = window.CTF_WIRE || {}` → `var WIRE = window.MPE_WIRE || {}`,
+  the same single wire identifier `tools/gen_wire_constants.nim` emits and the same one
+  `broadcast_core.js` carries (the `ctf_`/`CTF_` rename sweep this note mandates leaves the starter's
+  identifier nowhere to live). Nothing else is edited or reformatted; `tests/test_viewer.nim` pins its
+  sha256 and asserts `CTF_WIRE` is absent. Everything particle-worlds adds lives in the
   appended game block. Its `markBeat`/`renderBeatMarkers`/`ingestBeats`/`setVerdict` remain;
   `ingestBeats` ignores kinds it does not know and still drives `setVerdict` off the final
   round-over beat, which is exactly the behaviour this game wants.
