@@ -124,14 +124,27 @@ suite "particle motion":
     ## and the emscripten viewer image. These modules are integer-only.
     const banned = ["sin(", "cos(", "tan(", "arctan", "sqrt(", "hypot(",
                     "float"]
+    proc callsBanned(code, needle: string): bool =
+      ## A whole-identifier match. `isqrt(` -- the integer square root this
+      ## module ships precisely so the hashed path never calls libm -- contains
+      ## the substring `sqrt(`, and a naive scan would flag the fix as the bug.
+      var start = 0
+      while true:
+        let at = code.find(needle, start)
+        if at < 0:
+          return false
+        let before = (if at == 0: ' ' else: code[at - 1])
+        if not (before.isAlphaNumeric() or before == '_'):
+          return true
+        start = at + 1
     for module in ["field", "motion", "scoring", "beliefs"]:
       let source = sourceOf("src/mpe/" & module & ".nim")
       for line in source.splitLines():
         let code = line.split("##")[0].split("#")[0]
         for needle in banned:
-          if needle in code:
+          if code.callsBanned(needle):
             echo module, ".nim: ", line
-          check needle notin code
+          check not code.callsBanned(needle)
 
   test "the same seed reproduces a byte-identical position stream":
     proc trace(seed: int): string =
