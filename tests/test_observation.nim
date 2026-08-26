@@ -2,6 +2,7 @@
 ## each seat must see, and what it must never see.
 
 import std/[json, strutils, unittest]
+import bitworld/spriteprotocol
 import ../src/mpe/[sim, control, directives, decide]
 import fixture
 
@@ -178,3 +179,34 @@ suite "the per-seat observation":
         sim.episodePermille(seat).float / 1000.0) < 1e-9
       check score["this_round_so_far"].getFloat() >= 0.0
       check score["this_round_so_far"].getFloat() <= 1.0
+
+  test "the live round score is real in TAG, which banks no per-tick accumulator":
+    ## `tag` scores from the contact counters at round end (scoring.scoreTick's
+    ## modeTag arm is `discard`), so a seat view that divides `roundAccum` by
+    ## the elapsed ticks reports 0.000 to every seat for the whole round. The
+    ## seat sees what the spectator frame shows: the evader's uncontacted
+    ## fraction, and each pursuer's contact credit.
+    var sim = seatedSim(fixtureConfig(@[modeTag]))
+    var inputs = newSeq[InputState](sim.players.len)
+    for tick in 0 ..< 60:
+      sim.step(inputs, inputs)
+    let evader = sim.seatWithRole(0)
+    var pursuer = -1
+    for seat in 0 ..< 4:
+      if seat != evader:
+        pursuer = seat
+        break
+    ## Park the pursuer on the evader for a while: contact accrues.
+    for tick in 0 ..< 60:
+      sim.players[pursuer].x = sim.players[evader].x + 4
+      sim.players[pursuer].y = sim.players[evader].y
+      sim.step(inputs, inputs)
+    check sim.roundAccum[evader] == 0          ## nothing accumulates in tag
+    check sim.tagCredit[pursuer] > 0
+    let elapsed = max(1, sim.gameTicksElapsed())
+    check abs(sim.viewOf(pursuer)["score"]["this_round_so_far"].getFloat() -
+      sim.tagRoundPermille(pursuer, elapsed).float / 1000.0) < 1e-9
+    check sim.viewOf(pursuer)["score"]["this_round_so_far"].getFloat() > 0.0
+    check abs(sim.viewOf(evader)["score"]["this_round_so_far"].getFloat() -
+      sim.tagRoundPermille(evader, elapsed).float / 1000.0) < 1e-9
+    check sim.viewOf(evader)["score"]["this_round_so_far"].getFloat() < 1.0

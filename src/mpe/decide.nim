@@ -162,8 +162,15 @@ proc seatViewJson*(
     banked.add(%(entry.permille[min(max(0, seat), 3)].float / 1000.0))
   let
     elapsed = max(1, sim.gameTicksElapsed())
-    soFar = clamp(int(sim.roundAccum[min(max(0, seat), 3)] div elapsed),
-                  0, 1000)
+    ## `tag` does not accumulate per tick -- it scores from the contact
+    ## counters (scoring.scoreTick's modeTag arm is `discard`) -- so reading
+    ## `roundAccum` there reported 0.000 to every seat for all ten turns of the
+    ## round. Same rule the spectator frame uses (broadcast.buildStateJson).
+    soFar =
+      if sim.mode == modeTag:
+        sim.tagRoundPermille(min(max(0, seat), 3), elapsed)
+      else:
+        clamp(int(sim.roundAccum[min(max(0, seat), 3)] div elapsed), 0, 1000)
 
   var node = %*{
     "round": sim.roundIndex + 1,
