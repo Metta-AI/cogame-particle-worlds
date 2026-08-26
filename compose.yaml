@@ -1,0 +1,13 @@
+services:
+  # Underscored on purpose: `coworld build` derives the manifest image
+  # placeholder from the compose service name, so `particle_worlds` yields
+  # {{PARTICLE_WORLDS_IMAGE}} (the lantern 0.1.0 scar -- {{GAME_IMAGE}} is not
+  # a thing). ONE image, TWO entrypoints: /bin/particle-worlds (the game
+  # server) and /bin/particle-worlds-player (every policy, env-switched).
+  particle_worlds:
+    image: coworld-particle-worlds:latest
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      network: host

@@ -1,0 +1,31 @@
+# Ignore files with no extension.
+*
+!*/
+!*.*
+!LICENSE
+!Dockerfile
+
+# Ignore hidden files, but not the license or github files.
+.*
+!.github/
+!.github/**
+!.gitignore
+!.dockerignore
+
+# Normal ignores.
+nim.cfg
+*.exe
+nimcache
+*.pdb
+*.ilk
+*.out
+out/
+tmp/
+build/
+dist/
+*.bitreplay
+*.replay
+node_modules/
+replay-viewer/dist/
+result
+result-*
