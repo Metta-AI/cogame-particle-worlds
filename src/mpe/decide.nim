@@ -452,7 +452,8 @@ proc turn*(
           "the JSON object described above, starting with '{', with exactly " &
           "one \"cogs\" entry, for yourself.")
       let request = engine.client.requestFor(
-        SystemPrompt, userMessage(engine.seats[seat].prompt, user))
+        systemPromptFor($sim.mode, roleName(sim.mode, sim.roleIndex[min(seat, 3)])),
+        userMessage(engine.seats[seat].prompt, user))
       batch.post(request.url, request.headers, request.body, $seat)
     let started = getMonoTime()
     # curly hands the deadline to CURLOPT_TIMEOUT, whose granularity is WHOLE

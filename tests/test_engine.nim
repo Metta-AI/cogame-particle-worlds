@@ -120,6 +120,21 @@ suite "the turn loop":
     var sim = seatedSim(fixtureConfig(@[modeTag]))
     check sim.config.tagPx == 20
 
+  test "the system prompt names the mode and the role, per turn":
+    ## design note: the line `THIS ROUND IS <MODE> AND YOU ARE THE <ROLE>.` is
+    ## filled per turn. It is a const with two substitution points, so the
+    ## unfilled placeholders must never reach a provider.
+    check "THIS ROUND IS <MODE> AND YOU ARE THE <ROLE>." in SystemPrompt
+    for mode in Mode:
+      var sim = seatedSim(fixtureConfig(@[mode]))
+      for seat in 0 ..< 4:
+        let role = roleName(sim.mode, sim.roleIndex[seat])
+        let filled = systemPromptFor($sim.mode, role)
+        check ("THIS ROUND IS " & ($sim.mode).toUpperAscii() &
+          " AND YOU ARE THE " & role.toUpperAscii() & ".") in filled
+        check "<MODE>" notin filled
+        check "<ROLE>" notin filled
+
   test "the client picks up the fake Bedrock endpoint":
     var sim = seatedSim(fixtureConfig())
     let client = newLlmClient(sim.config)

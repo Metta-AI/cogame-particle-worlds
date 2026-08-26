@@ -219,7 +219,7 @@ A B C D E F G H, or "-" for silence. Everyone on the field hears every symbol
 instantly, whatever the distance. A symbol means NOTHING by itself: it means
 what the four of you make it mean, this round. Your "note" is for the audience
 watching the replay; no other particle ever sees it.
-THIS ROUND IS NAMED IN THE REPORT BELOW, AND SO IS YOUR ROLE.
+THIS ROUND IS <MODE> AND YOU ARE THE <ROLE>.
 SPREAD: all four of you are on the same side. Score = how well the four marks
 are covered, averaged over every tick, minus a small penalty for every tick you
 spend touching another particle. Four particles on four different marks is a
@@ -257,6 +257,16 @@ inside the 20-pixel tag radius rather than standing off; evade = drive away
 from the nearest particle, staying inside the walls; orbit = circle `target` at
 120 pixels. `face` only turns your sprite. `symbol` is BROADCAST.
 """
+
+proc systemPromptFor*(mode, role: string): string =
+  ## The system prompt with its one PER-TURN line filled in: the design note
+  ## reserves `THIS ROUND IS <MODE> AND YOU ARE THE <ROLE>.` for the two facts
+  ## that change under the seat every round. They are in the seat's view as
+  ## well, but a rule the model has to go and look up in a JSON report is not
+  ## the same as a rule stated in the rules.
+  SystemPrompt
+    .replace("<MODE>", mode.toUpperAscii())
+    .replace("<ROLE>", role.toUpperAscii())
 
 proc operatorBlock*(prompt: string): string =
   ## The seat's own PLAYER_PROMPT, under a heading that tells the model how
