@@ -1,153 +1,59 @@
 {
-  "maxGames": 1,
-  "lives": 3,
-  "hitPoints": 3,
-  "respawnTicks": 72,
-  "fireCooldownTicks": 12,
-  "carrierSpeedPct": 70,
-  "playerBouncePct": 40,
-  "aimTurnRate": 5,
-  "visionConeDeg": 60,
-  "visionBubble": 90,
-  "maxTicks": 7200,
-  "mapPath": "arena",
+  "seed": 679961,
+  "num_agents": 4,
+  "minPlayers": 4,
+  "teams": 4,
+  "cogsPerTeam": 1,
+  "rounds": [
+    "spread",
+    "deceive",
+    "crypto",
+    "tag"
+  ],
+  "maxTicks": 1080,
+  "maxGames": 4,
+  "turnTicks": 108,
+  "turnSpacingMs": 0,
+  "wallClockBudgetSeconds": 690,
+  "lobbyJoinTimeoutTicks": 2400,
+  "startWaitTicks": 0,
+  "gameOverTicks": 72,
+  "mapPath": "field",
+  "fastMode": true,
+  "fullyObservable": true,
+  "showPlayerLabels": false,
   "tokens": [
     "0xBADA55_0",
     "0xBADA55_1",
     "0xBADA55_2",
-    "0xBADA55_3",
-    "0xBADA55_4",
-    "0xBADA55_5",
-    "0xBADA55_6",
-    "0xBADA55_7",
-    "0xBADA55_8",
-    "0xBADA55_9",
-    "0xBADA55_10",
-    "0xBADA55_11",
-    "0xBADA55_12",
-    "0xBADA55_13",
-    "0xBADA55_14",
-    "0xBADA55_15"
+    "0xBADA55_3"
   ],
   "players": [
     {
-      "name": "player1"
+      "name": "Particle1"
     },
     {
-      "name": "player2"
+      "name": "Particle2"
     },
     {
-      "name": "player3"
+      "name": "Particle3"
     },
     {
-      "name": "player4"
-    },
-    {
-      "name": "player5"
-    },
-    {
-      "name": "player6"
-    },
-    {
-      "name": "player7"
-    },
-    {
-      "name": "player8"
-    },
-    {
-      "name": "player9"
-    },
-    {
-      "name": "player10"
-    },
-    {
-      "name": "player11"
-    },
-    {
-      "name": "player12"
-    },
-    {
-      "name": "player13"
-    },
-    {
-      "name": "player14"
-    },
-    {
-      "name": "player15"
-    },
-    {
-      "name": "player16"
+      "name": "Particle4"
     }
   ],
   "slots": [
     {
-      "team": "red",
-      "color": "red"
+      "team": "red"
     },
     {
-      "team": "blue",
-      "color": "blue"
+      "team": "blue"
     },
     {
-      "team": "red",
-      "color": "red"
+      "team": "green"
     },
     {
-      "team": "blue",
-      "color": "blue"
-    },
-    {
-      "team": "red",
-      "color": "red"
-    },
-    {
-      "team": "blue",
-      "color": "blue"
-    },
-    {
-      "team": "red",
-      "color": "red"
-    },
-    {
-      "team": "blue",
-      "color": "blue"
-    },
-    {
-      "team": "red",
-      "color": "red"
-    },
-    {
-      "team": "blue",
-      "color": "blue"
-    },
-    {
-      "team": "red",
-      "color": "red"
-    },
-    {
-      "team": "blue",
-      "color": "blue"
-    },
-    {
-      "team": "red",
-      "color": "red"
-    },
-    {
-      "team": "blue",
-      "color": "blue"
-    },
-    {
-      "team": "red",
-      "color": "red"
-    },
-    {
-      "team": "blue",
-      "color": "blue"
+      "team": "yellow"
     }
-  ],
-  "fireWindupTicks": 5,
-  "barrageMaxPerSec": 15,
-  "barrageStartPerSec": 4,
-  "barrageStartSec": 30,
-  "barrageSaturateSec": 30
+  ]
 }

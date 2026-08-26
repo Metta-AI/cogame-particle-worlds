@@ -61,6 +61,11 @@ proc initBroadcastTracker*(): BroadcastTracker =
   result.prevPhase = Lobby
   for team in Team:
     result.carriers[team] = -1
+  ## The `tag` beat throttle starts open: a contact on tick 0 of the episode is
+  ## still the first contact, and a zero start would swallow every beat inside
+  ## the first TagBeatThrottleTicks ticks.
+  result.tagBeatTick = low(int32).int
+  result.coverBand = -1
 
 # policyName moved to sim_types.nim (the join path needs it to resolve perk
 # groups); re-exported through `import sim`, so every consumer still sees it.

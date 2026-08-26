@@ -1,70 +1,93 @@
-#!/bin/bash
-# Records one full-scale MPE episode as a .bitreplay fixture.
-# Usage: tools/record_fixture.sh <out.bitreplay> <seed> [maxTicks] [extraConfigJson]
+#!/usr/bin/env bash
+# Records one full particle-worlds episode as a .bitreplay fixture, natively.
+#
+#   tools/record_fixture.sh <out.bitreplay> [seed] [maxTicks] [extraConfigJson]
+#
+# The containerised twin of this is tools/ci/docker_smoke.sh, which is what CI
+# runs; this is the local forensics path, so it uses whatever binaries are on
+# hand rather than building an image:
+#
+#   nim c -d:release --out:particle-worlds src/particle_worlds.nim
+#   nim c -d:release --out:particle-worlds-player src/particle_worlds_player.nim
+#   tools/record_fixture.sh /tmp/ep.bitreplay 679961 1080
+#   python3 tools/replay_summary.py /tmp/ep.bitreplay | jq .
 set -euo pipefail
 cd "$(dirname "$0")/.."
-OUT="$1"; SEED="$2"; MAXTICKS="${3:-10000}"; EXTRA="${4:-}"; PORT="${PORT:-21000}"
-[ -z "$EXTRA" ] && EXTRA='{}'
-CFG=$(mktemp /tmp/mpe-fixture-cfg-$$-XXXXXX)
-python3 - "$CFG" "$SEED" "$MAXTICKS" "$EXTRA" <<'PY'
-import json, sys
-cfg = json.load(open("config.json"))
-cfg["seed"] = int(sys.argv[2])
-cfg["maxTicks"] = int(sys.argv[3])
-cfg["speed"] = 16
-cfg["maxGames"] = 1
-cfg.update(json.loads(sys.argv[4]))
-json.dump(cfg, open(sys.argv[1], "w"))
-PY
-LOG="${LOG:-/tmp/mpe-fixture-server-$$.log}"
-COGAME_HOST=127.0.0.1 COGAME_PORT=$PORT \
-COGAME_CONFIG_URI="file://$CFG" \
-COGAME_SAVE_REPLAY_URI="file://$PWD/$OUT" \
-./bin/particle-worlds-server > "$LOG" 2>&1 &
-SERVER_PID=$!
 
-# Wait for the port to actually listen before spawning bots — a slow start
-# would otherwise strand the bots and hang the lobby forever, silently.
-for i in $(seq 1 40); do
-  nc -z 127.0.0.1 "$PORT" 2>/dev/null && break
-  if ! kill -0 $SERVER_PID 2>/dev/null; then
-    echo "server died during startup; log tail:" >&2
-    tail -20 "$LOG" >&2
+OUT="${1:?usage: record_fixture.sh <out.bitreplay> [seed] [maxTicks] [extraJson]}"
+SEED="${2:-679961}"
+MAXTICKS="${3:-1080}"
+EXTRA="${4:-{\}}"
+PORT="${PORT:-21000}"
+GAME_BIN="${GAME_BIN:-./particle-worlds}"
+PLAYER_BIN="${PLAYER_BIN:-./particle-worlds-player}"
+SCRIPTED="${SCRIPTED:-drifter}"
+
+for binary in "${GAME_BIN}" "${PLAYER_BIN}"; do
+  [ -x "${binary}" ] || {
+    echo "missing ${binary} -- build it first (see the header)" >&2
+    exit 1
+  }
+done
+
+work="$(mktemp -d /tmp/pw-fixture-XXXXXX)"
+trap 'rm -rf "${work}"; kill 0 2>/dev/null || true' EXIT
+
+python3 - "${work}/config.json" "${SEED}" "${MAXTICKS}" "${EXTRA}" <<'PY'
+import json, sys
+config = json.load(open("config.json"))
+config["seed"] = int(sys.argv[2])
+config["maxTicks"] = int(sys.argv[3])
+config["turnSpacingMs"] = 0
+config.update(json.loads(sys.argv[4]))
+json.dump(config, open(sys.argv[1], "w"), indent=1)
+PY
+
+COGAME_HOST=127.0.0.1 COGAME_PORT="${PORT}" \
+COGAME_CONFIG_URI="file://${work}/config.json" \
+COGAME_RESULTS_URI="file://${work}/results.json" \
+COGAME_SAVE_REPLAY_URI="file://${PWD}/${OUT}" \
+COGAME_EVENTS_URI="file://${work}/events.jsonl" \
+"${GAME_BIN}" > "${work}/game.log" 2>&1 &
+game_pid=$!
+
+# Wait for the port to LISTEN before starting the seats: the game bakes its
+# board render caches before it opens the listener, and a seat that dials too
+# early just retries -- but a game that died on its config should fail here
+# rather than strand four players in a lobby that will never fill.
+for _ in $(seq 1 120); do
+  if ! kill -0 "${game_pid}" 2>/dev/null; then
+    echo "the game exited before listening:" >&2
+    tail -20 "${work}/game.log" >&2
     exit 1
   fi
+  if (exec 3<>/dev/tcp/127.0.0.1/"${PORT}") 2>/dev/null; then break; fi
   sleep 0.5
 done
-nc -z 127.0.0.1 "$PORT" || { echo "server never listened" >&2; tail -20 "$LOG" >&2; exit 1; }
 
-BOT_PIDS=()
-for i in ${SLOTS:-$(seq 0 15)}; do
-  MPE_BOT_FAST_READY=1 \
-  COWORLD_PLAYER_WS_URL="ws://127.0.0.1:$PORT/player?slot=$i&token=0xBADA55_$i" \
-    ./players/baseline/baseline.out >/dev/null 2>&1 &
-  BOT_PIDS+=($!)
+tokens=$(python3 -c '
+import json, sys
+print(" ".join(json.load(open(sys.argv[1]))["tokens"]))' "${work}/config.json")
+slot=0
+for token in ${tokens}; do
+  COWORLD_PLAYER_WS_URL="ws://127.0.0.1:${PORT}/player?slot=${slot}&token=${token}" \
+  PLAYER_SCRIPTED="${SCRIPTED}" \
+  PLAYER_POLICY_LABEL="${SCRIPTED}-${slot}" \
+  "${PLAYER_BIN}" > "${work}/player-${slot}.log" 2>&1 &
+  slot=$((slot + 1))
 done
 
-# Bounded wait: at speed 16 even a full-length episode finishes in minutes;
-# anything longer is a hang, and hangs must be loud, not silent.
-DEADLINE=$((SECONDS + 600))
-while kill -0 $SERVER_PID 2>/dev/null; do
-  if [ $SECONDS -ge $DEADLINE ]; then
-    echo "server still running after 10 minutes — killing; log tail:" >&2
-    tail -20 "$LOG" >&2
-    kill $SERVER_PID 2>/dev/null || true
-    for p in "${BOT_PIDS[@]}"; do kill "$p" 2>/dev/null || true; done
-    exit 1
-  fi
-  sleep 2
-done
-wait $SERVER_PID || { echo "server exited non-zero; log tail:" >&2; tail -20 "$LOG" >&2; }
-for p in "${BOT_PIDS[@]}"; do kill "$p" 2>/dev/null || true; done
-rm -f "$CFG"
-# A written replay under ~10KB is a truncated episode, not a fixture.
-SIZE=$(stat -f%z "$OUT" 2>/dev/null || stat -c%s "$OUT" 2>/dev/null || echo 0)
-if [ "$SIZE" -lt 10000 ]; then
-  echo "replay missing or truncated ($SIZE bytes); server log tail:" >&2
-  tail -20 "$LOG" >&2
-  exit 1
+wait "${game_pid}"
+status=$?
+echo "game exited ${status}"
+tail -6 "${work}/game.log"
+if [ -f "${work}/results.json" ]; then
+  python3 -c '
+import json, sys
+r = json.load(open(sys.argv[1]))
+print("reason", r["reason"], r["endRule"], "roundsPlayed", r["roundsPlayed"])
+print("modes", r["modes"])
+print("scores", r["scores"])' "${work}/results.json"
 fi
-ls -la "$OUT"
+ls -l "${OUT}"
+exit "${status}"

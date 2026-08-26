@@ -2084,7 +2084,8 @@ proc runServerLoop*(
             # wall-clock stop). Arm the NEXT round's index before the lobby
             # reset that precedes the next startGame -> beginRound.
             sim.gameIndex = gamesPlayed
-            sim.roundIndex = min(gamesPlayed, max(0, config.maxGames - 1))
+            ## `roundIndex` is advanced by `resetToLobby` INSIDE the step, not
+            ## here: it is hashed, so the replayed sim has to re-derive it.
             squadsBuilt = false
             lastTurnKey = -1
             if sim.roundLog.len > 0:

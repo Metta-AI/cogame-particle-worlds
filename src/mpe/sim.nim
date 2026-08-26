@@ -3900,6 +3900,15 @@ proc resetToLobby*(sim: var SimServer) =
   sim.damagePops = @[]
   sim.clearPaintGrid()
   sim.feedDirectives = @[]
+  ## THE ROUND ADVANCES HERE, inside the deterministic step. resetToLobby is
+  ## reached from `step`'s GameOver branch when the hold expires, so the
+  ## replayed sim re-executes it and re-derives the next round's index — which
+  ## is what lets `roundIndex`, `mode`, `roleIndex`, `landmarks`, the goal and
+  ## the key all be HASHED. Advancing it from the server loop instead (the
+  ## starter's `gameIndex`) would leave the replay stuck on round 0 and break
+  ## the hash chain at the first round boundary.
+  if sim.config.numAgents > 0 and sim.gameStartTick >= 0:
+    sim.roundIndex = min(sim.roundIndex + 1, max(0, sim.config.maxGames - 1))
   ## The radio and the belief state do not survive a round: a convention is
   ## negotiated inside a round and a key is redrawn for the next one.
   for seat in 0 ..< 4:
