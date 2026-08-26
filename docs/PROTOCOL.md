@@ -205,9 +205,11 @@ what makes a `deadline` episode's final recorded hash re-derivable, and what lan
 same `GameOver`, winner and banked rounds the `result` record carries.
 
 The mark layout, the colour permutation, the mode/role schedule, the goal and the key are all
-**re-derived** from the seeded RNG rather than being load-bearing records (the `roundcard` record is
-a convenience, and the viewer cross-checks it against its own re-derivation). That is why the file
-stays around 300 KB and why a hash mismatch is a real integrity signal rather than a rendering nit.
+**re-derived** from the seeded RNG rather than being load-bearing records. The `roundcard` record is
+a convenience for `tools/replay_summary.py`, its only reader: playback drops it, so nothing compares
+it against the re-derivation. All of those values are in `gameHash`, so a divergence in any of them
+surfaces as a hash mismatch at the tick it happens. That is why the file stays around 300 KB and why
+a hash mismatch is a real integrity signal rather than a rendering nit.
 
 ### Determinism
 

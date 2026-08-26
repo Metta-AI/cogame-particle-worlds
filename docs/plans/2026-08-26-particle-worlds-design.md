@@ -1080,8 +1080,9 @@ Everything the viewer needs is in the bytes; no server is contacted except S3 fo
 
 The landmark layout, the colour permutation, the mode/role schedule, the goal and the key are all
 **re-derived** from the seeded RNG rather than being load-bearing records (the `roundcard` record is a
-convenience for `replay_summary.py` and the feed, and the viewer cross-checks it against its own
-re-derivation), which is why the file stays small — 4320 ticks of hashes plus ~25 k mask-change
+convenience for `replay_summary.py`, its only reader — playback drops it, so nothing cross-checks it;
+all of those values are in `gameHash`, so a divergence surfaces as a hash mismatch), which is why the
+file stays small — 4320 ticks of hashes plus ~25 k mask-change
 records plus 160 directive records ≈ **300 KB**, well under 1 MB — and why a hash mismatch is a real
 integrity signal rather than a rendering nit.
 

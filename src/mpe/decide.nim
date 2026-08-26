@@ -258,9 +258,12 @@ proc registerRecord*(
 proc roundcardRecord*(sim: SimServer): string =
   ## The `roundcard` control record: the round's mode, its four public roles,
   ## its goal and colour, its key and its marks. A CONVENIENCE for
-  ## tools/replay_summary.py and the feed — the viewer re-derives every one of
-  ## these values from the seeded draw and cross-checks this record against its
-  ## own derivation, so a divergence is visible rather than authoritative.
+  ## tools/replay_summary.py — the ONLY reader in the tree. Playback DROPS it
+  ## (`replays.nim`'s chat branch keeps `directive` and the `stop` record and
+  ## nothing else), so nothing cross-checks it against a re-derivation: the
+  ## viewer re-derives all of these values from the seeded draw, and every one
+  ## of them is in `gameHash`, so a divergence surfaces as a hash mismatch at
+  ## the tick it happens rather than as a record comparison.
   var
     roles = newJArray()
     marks = newJArray()
