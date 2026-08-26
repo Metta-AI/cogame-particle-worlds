@@ -360,6 +360,21 @@ proc evadePoint*(
   if not found:
     result = centreOfField()
 
+proc recordHoldAnchor*(sim: var SimServer, cogIndex: int) =
+  ## The point `hold` returns to: the particle's OWN position at the tick the
+  ## order was installed, recorded per cog at the turn boundary (design
+  ## §Intents). Without this the anchor stays at the round's spawn point and a
+  ## particle that has since moved is navigated back to the 250 px ring — up to
+  ## a thousand pixels — instead of braking where it stands.
+  ##
+  ## `holdX`/`holdY` are NOT in `gameHash` (sim_state.nim mixes no control
+  ## state), so writing them from the server's turn boundary cannot move the
+  ## hash chain the wasm viewer re-derives.
+  if cogIndex >= 0 and cogIndex < 4:
+    let (px, py) = sim.particleCentreAt(cogIndex)
+    sim.holdX[cogIndex] = px
+    sim.holdY[cogIndex] = py
+
 proc goalFor*(
   ctl: ControlState, sim: SimServer, order: CogOrder, cogIndex: int
 ): tuple[x, y: int] =

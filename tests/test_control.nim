@@ -177,6 +177,36 @@ suite "the control layer and the scripted baselines":
     ## Its goal sits inside the tag radius, not 60 px behind the tail.
     check gap <= sim.config.tagPx * sim.config.tagPx
 
+  test "hold brakes where the order landed, not at the round spawn point":
+    ## design §Intents: `hold` is "the particle's own position AT THE TICK THE
+    ## ORDER WAS INSTALLED (stored per cog at the turn boundary)". A particle
+    ## that has drifted since spawn must be held where it stands; steering it
+    ## back to its spawn ring would be a cross-field run, not a brake.
+    var sim = seatedSim(fixtureConfig(@[modeCrypto]))
+    var ctl = initControlState(sim)
+    let
+      seat = 1
+      spawn = sim.particleCentre(seat)
+    sim.players[seat].x = clamp(spawn.x + 420, 0, MapWidth - 1)
+    sim.players[seat].y = clamp(spawn.y + 160, 0, MapHeight - 1)
+    let moved = sim.particleCentre(seat)
+    check distSq(moved.x, moved.y, spawn.x, spawn.y) > ArriveRadius * ArriveRadius
+    ## The turn boundary: the server records the anchor as the directive is
+    ## installed (server.nim, the `for order in directive.orders` block).
+    sim.recordHoldAnchor(seat)
+    ctl.observeEnemies(sim)
+    let order = CogOrder(
+      cogIndex: seat, id: sim.cogAlias(seat), intent: intHold,
+      targetX: 0, targetY: 0, symbol: 0)
+    check ctl.goalFor(sim, order, seat) == moved
+    ## And it really brakes: no d-pad bit, because the goal is where it is.
+    check (ctl.compileMask(sim, order, seat) and
+      (ButtonUp or ButtonDown or ButtonLeft or ButtonRight)) == 0
+    ## Drift further inside the same turn and it is steered BACK to the anchor,
+    ## which is what stops a coasting particle from wandering off.
+    sim.players[seat].x = clamp(moved.x + 200, 0, MapWidth - 1)
+    check ctl.goalFor(sim, order, seat) == moved
+
   test "drifter x 4 completes, covers >= 80% in spread, and beats beeline":
     proc play(baseline: Baseline, rounds: seq[Mode]): tuple[
         mean: int, cover: int, bobOnGoal: bool, played: int] =

@@ -1961,6 +1961,11 @@ proc runServerLoop*(
           ## gate does not apply to a symbol). NOT hashed.
           for order in directive.orders:
             sim.installSymbol(order.cogIndex, order.symbol, turnIndex)
+            ## The HOLD anchor, recorded at the turn boundary for every cog
+            ## this directive commands: `hold` means "stay where you are", so
+            ## the point the control layer steers back to is where the particle
+            ## IS as the order lands, not where it spawned. Not hashed.
+            sim.recordHoldAnchor(order.cogIndex)
             if order.symbol > 0:
               sim.emitEvent(
                 Symbol, source = order.cogIndex,
