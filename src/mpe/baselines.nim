@@ -186,15 +186,18 @@ proc drifterOrder(sim: SimServer, seat: int, id: string): CogOrder =
       result.targetX = px
       result.targetY = py
     else:
-      ## A pursuer runs a PURE PURSUIT: `go` straight at the evader's current
-      ## position. `shadow` is the wrong intent for a baseline pursuer even
-      ## though it reads like the right one — it parks at
-      ## `shadowStandoffPx` = 60 px, three times the `tagPx` = 20 px contact
-      ## radius, so a shadowing pack trails the evader for a whole round and
-      ## never scores a single contact tick. The naive chase does score, which
-      ## is what makes `tag` a MEASURED round with a real bar for a champion to
-      ## clear — and the published champion prompts already advise the better
-      ## answer (two shadow, one intercepts ahead of the evader's velocity).
+      ## A pursuer runs a PURE PURSUIT at the evader's current position, and
+      ## `shadow` IS that intent here: control.nim gives a `tag` pursuer's
+      ## `shadow` the evader as its subject whatever `target` says, and closes
+      ## to `tagPx div 2` = 10 px rather than the eavesdropper's
+      ## `shadowStandoffPx` = 60 px. That rule exists because 60 px is three
+      ## times the 20 px contact radius: a pack shadowing at the stand-off
+      ## trails the evader for a whole round at a measured 71 px and never
+      ## scores a single contact tick, which would make `tag` an unmeasured
+      ## round instead of a chase. The naive chase does score, which is what
+      ## gives `tag` a real bar for a champion to clear — and the published
+      ## champion prompts already advise the better answer (two shadow, one
+      ## intercepts ahead of the evader's velocity).
       let evader = sim.seatWithRole(0)
       let (ex, ey) =
         if evader >= 0: sim.particleCentre(evader) else: centreOfField()
