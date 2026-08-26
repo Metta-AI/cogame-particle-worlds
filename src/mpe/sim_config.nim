@@ -795,6 +795,16 @@ proc validate(config: GameConfig) =
   ## which no such placement exists: reject the config here rather than hand
   ## field.nim a sampler that can only fail (it is bounded now, and would place
   ## marks the guard then faults on).
+  ##
+  ## This is a NECESSARY condition, not a sufficient one, and deliberately so:
+  ## it measures the LONGER axis only, so a box whose short axis is degenerate
+  ## while its long axis clears 360 px still validates. Making it sufficient
+  ## would mean solving the 2-D packing here, and there is no need — every
+  ## outcome downstream is bounded: the sampler is capped at `MaxLandmarkDraws`,
+  ## falls back to the RNG-free lattice sweep, and the sim guard faults the
+  ## episode if any pair still lands inside 120 px. What this check buys is a
+  ## clear config error instead of a mid-episode fault for the one case a
+  ## hosted config can plausibly hit — a margin turned up past the board.
   let
     landmarkBox = max(
       MapWidth - 1 - 2 * max(1, config.landmarkMargin),
