@@ -251,9 +251,10 @@ Schema:
   "symbol":"-" or one of A B C D E F G H}]}
 Intents: go = drive to `target` and stop there; hold = brake and stay where you
 are; cover = drive onto the mark nearest `target` and sit on it; shadow = close
-to 60 pixels of the particle nearest `target` and stay there; evade = drive
-away from the nearest particle, staying inside the walls; orbit = circle
-`target` at 120 pixels. `face` only turns your sprite. `symbol` is BROADCAST.
+to 60 pixels of the particle nearest `target` and stay there, EXCEPT as a TAG
+pursuer, where it closes on the evader to contact range (10 pixels) whatever
+`target` says; evade = drive away from the nearest particle, staying inside the
+walls; orbit = circle `target` at 120 pixels. `face` only turns your sprite. `symbol` is BROADCAST.
 """
 
 proc operatorBlock*(prompt: string): string =
