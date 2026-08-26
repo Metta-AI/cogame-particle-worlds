@@ -360,6 +360,24 @@ proc evadePoint*(
   if not found:
     result = centreOfField()
 
+proc anchorHold*(sim: var SimServer, cogIndex: int) =
+  ## Stamps one particle's `hold` anchor: where it IS, at the tick the order is
+  ## installed. `hold` means "brake and stay where you are" (the shipped prompt
+  ## in llm.nim, docs/RULES.md §Orders, and `goalFor`'s own comment), and the
+  ## anchor is the only thing that says WHERE that is. It used to be written
+  ## once per round by `placeParticles`, so a particle that had moved and was
+  ## then ordered to hold was navigated back to its spawn point on the 250 px
+  ## ring — up to ~500 px away, at cruise — instead of braking in place.
+  ##
+  ## Not hashed and never read by playback: the anchor feeds mask compilation,
+  ## which is on the live side of the determinism boundary (the masks it
+  ## produces are what the replay carries).
+  if cogIndex < 0 or cogIndex >= 4 or cogIndex >= sim.players.len:
+    return
+  let (px, py) = sim.particleCentreAt(cogIndex)
+  sim.holdX[cogIndex] = px
+  sim.holdY[cogIndex] = py
+
 proc goalFor*(
   ctl: ControlState, sim: SimServer, order: CogOrder, cogIndex: int
 ): tuple[x, y: int] =
@@ -374,7 +392,8 @@ proc goalFor*(
   of intGo:
     (tx, ty)
   of intHold:
-    ## The particle's own position at the tick the order was installed, so a
+    ## The particle's own position at the tick the order was installed
+    ## (`anchorHold`, called by the server as it installs the directive), so a
     ## DRIFTING particle is steered back rather than allowed to coast away.
     if seat >= 0 and seat < 4: (sim.holdX[seat], sim.holdY[seat])
     else: (px, py)

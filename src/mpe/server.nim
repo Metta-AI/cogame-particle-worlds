@@ -1962,6 +1962,12 @@ proc runServerLoop*(
           ## gate does not apply to a symbol). NOT hashed.
           for order in directive.orders:
             sim.installSymbol(order.cogIndex, order.symbol, turnIndex)
+            ## `hold` is "brake and stay WHERE YOU ARE", so the anchor it
+            ## brakes to is stamped HERE, as the order is installed. Without
+            ## this it kept the value `placeParticles` wrote at spawn and a
+            ## particle ordered to hold trekked back to the round's spawn ring.
+            if order.intent == intHold:
+              sim.anchorHold(order.cogIndex)
             if order.symbol > 0:
               sim.emitEvent(
                 Symbol, source = order.cogIndex,

@@ -177,6 +177,44 @@ suite "the control layer and the scripted baselines":
     ## Its goal sits inside the tag radius, not 60 px behind the tail.
     check gap <= sim.config.tagPx * sim.config.tagPx
 
+  test "hold brakes where the order landed, not back at the round's spawn":
+    ## `hold` means "brake and stay where you are" (llm.nim's prompt,
+    ## docs/RULES.md §Orders). The anchor is stamped as the order is installed,
+    ## so a particle half a round from its spawn point holds THERE.
+    var sim = seatedSim(fixtureConfig(@[modeSpread]))
+    var ctl = initControlState(sim)
+    let spawn = sim.particleCentre(0)
+    ## Displace it ~400 px from spawn and stop it there.
+    let moved = sim.nearestWalkable(
+      clamp(spawn.x + 400, 0, MapWidth - 1), spawn.y)
+    sim.players[0].x = moved.x
+    sim.players[0].y = moved.y
+    sim.players[0].velX = 0
+    sim.players[0].velY = 0
+    let here = sim.particleCentre(0)
+    check distSq(here.x, here.y, spawn.x, spawn.y) > 300 * 300
+    let order = CogOrder(
+      cogIndex: 0, id: sim.cogAlias(0), intent: intHold,
+      targetX: here.x, targetY: here.y, symbol: 0)
+    ## Installed exactly as the server installs it (server.nim's turn block).
+    sim.anchorHold(0)
+    check ctl.goalFor(sim, order, 0) == here
+    var inputs = newSeq[InputState](sim.players.len)
+    for tick in 0 ..< 2 * 108:              ## two whole turns of holding
+      ctl.observeEnemies(sim)
+      for seat in 0 ..< inputs.len:
+        inputs[seat] = InputState()
+      let mask = ctl.compileMask(sim, order, 0)
+      check legalMask(mask)
+      inputs[0] = decodeInputMask(mask)
+      sim.step(inputs, inputs)
+    let ended = sim.particleCentre(0)
+    ## It stayed where the order landed ...
+    check distSq(ended.x, ended.y, here.x, here.y) <=
+      (2 * ArriveRadius) * (2 * ArriveRadius)
+    ## ... and never trekked back to the spawn ring.
+    check distSq(ended.x, ended.y, spawn.x, spawn.y) > 300 * 300
+
   test "drifter x 4 completes, covers >= 80% in spread, and beats beeline":
     proc play(baseline: Baseline, rounds: seq[Mode]): tuple[
         mean: int, cover: int, bobOnGoal: bool, played: int] =
