@@ -3835,22 +3835,9 @@ body[data-embed] #board { top: 0; height: 100%; }
     else if (k === '+' || k === '=') send('+');
     else if (k === '-' || k === '_') send('-');
     else if (k === 'o') setSpoilers(!getSpoilers());
-    // No zoom keys: the field is fixed and always fitted (see "view controls"
-    // below), so z/x/0 would be controls for a state the board never enters.
-    // Arrows walk the view one CELL at a time; with shift, ten cells. A cell is
-    // a fixed distance in the WORLD — the same ground on every map and at every
-    // zoom — so arrowing is a way of stepping across the arena, not a nudge
-    // whose size depends on how far in you happen to be.
-    else if (k === 'ArrowLeft' || k === 'ArrowRight' ||
-             k === 'ArrowUp' || k === 'ArrowDown') {
-      var vt = core.getTransform();
-      if (!vt || !(vt.zoom > 1)) return;   // fitted whole: nowhere to go
-      ev.preventDefault();
-      var step = panCellBoardPx() * (ev.shiftKey ? 10 : 1);
-      var stepX = (k === 'ArrowLeft' ? -1 : k === 'ArrowRight' ? 1 : 0);
-      var stepY = (k === 'ArrowUp' ? -1 : k === 'ArrowDown' ? 1 : 0);
-      core.panByMap(stepX * step, stepY * step);
-    }
+    // No zoom or pan keys: the field is the fixed 1235 x 659 arena and
+    // relayout() always fits it whole (see "view controls" below), so z/x/0
+    // and the arrows would be controls for a state the board never enters.
     else if (k >= '1' && k <= '9') send(k);
     // keydown never crosses the iframe boundary: relay Esc to the league
     // shell, which relays it on to the Observatory theater host.
@@ -3863,93 +3850,25 @@ body[data-embed] #board { top: 0; height: 100%; }
   // HTML overlays, so a canvas click is always a MAP-space click. Invert the
   // core's letterbox transform to recover native map pixels, then hand them to
   // clickMap — the server hit-tests the soldier footprint and toggles selection.
-  // ---- zoom + pan -------------------------------------------------------
-  // A generated board can be 4992px square; letterboxed whole into a ~760px
-  // stage that is 0.15x, where a cog is a single pixel. So the board has to be
-  // enterable — but NOT by scrolling. A trackpad two-finger scroll and a mouse
-  // wheel are how you move the PAGE, and a viewer that eats them zooms the
-  // board every time someone tries to scroll past it. The gestures that mean
-  // "zoom" and nothing else are: pinch (trackpad and touchscreen), the +/-
-  // buttons and slider, and the z/x keys. Drag pans, arrows nudge, double-click
-  // (or 0, or the slider at rest) refits.
-  // The transform lives in broadcast_core, so click-to-select below inverts the
-  // SAME numbers and keeps hitting what you actually clicked at any zoom.
+  // ---- pointer bookkeeping ----------------------------------------------
+  // ZOOM AND PAN ARE GONE with #viewpanel (see "view controls" below): the
+  // board is the fixed 1235 x 659 particle-worlds field, relayout() always
+  // fits it whole, and a fixed arena drops the panel AND its wiring rather
+  // than hiding it -- no ctrl+wheel zoom, no Safari gesture zoom, no
+  // two-finger pinch, no drag-pan, no arrow-key pan, no core.zoomAt /
+  // core.setZoom / core.panBy / core.panByMap call anywhere on this page.
+  // What survives is exactly what a fitted board still needs: the touch-action
+  // sync (so a one-finger drag scrolls the PAGE rather than being swallowed)
+  // and enough drag bookkeeping that a stray drag is not read as a click on
+  // whatever cog happened to be under the pointer.
   var dragging = false, dragMoved = 0, lastDragX = 0, lastDragY = 0;
-  function canvasPoint(ev) {
-    var rect = canvas.getBoundingClientRect();
-    return { x: ev.clientX - rect.left, y: ev.clientY - rect.top, ok: rect.width > 0 };
-  }
-
-  // A trackpad PINCH reaches a browser as a wheel event with ctrlKey set (no
-  // ctrl key is actually held) — that, and only that, is the wheel we take.
-  // Everything else falls through to the page exactly as if the board were an
-  // image. preventDefault on this one also suppresses the browser's own
-  // ctrl+wheel page zoom, which would otherwise fight the board zoom.
-  var gesturing = false, gestureZoom = 1, gestureAt = null;
-  canvas.addEventListener('wheel', function (ev) {
-    if (!ev.ctrlKey || gesturing) return;
-    ev.preventDefault();
-    var p = canvasPoint(ev);
-    if (!p.ok) return;
-    var unit = ev.deltaMode === 1 ? 16 : (ev.deltaMode === 2 ? 100 : 1);
-    core.zoomAt(Math.exp(-ev.deltaY * unit * 0.012), p.x, p.y);
-  }, { passive: false });
-
-  // Safari reports the same trackpad pinch as gesture events instead, with an
-  // absolute scale factor from the gesture's start; `gesturing` keeps the two
-  // paths from both firing on browsers that send both.
-  canvas.addEventListener('gesturestart', function (ev) {
-    ev.preventDefault();
-    gesturing = true;
-    var t = core.getTransform();
-    gestureZoom = (t && t.zoom) || 1;
-    gestureAt = canvasPoint(ev);
-  });
-  canvas.addEventListener('gesturechange', function (ev) {
-    ev.preventDefault();
-    if (!gesturing || !(ev.scale > 0)) return;
-    var a = gestureAt && gestureAt.ok ? gestureAt : null;
-    core.setZoom(gestureZoom * ev.scale, a ? a.x : undefined, a ? a.y : undefined);
-  });
-  canvas.addEventListener('gestureend', function (ev) {
-    ev.preventDefault();
-    gesturing = false;
-  });
-
-  // Touchscreen pinch. #board's touch-action leaves one-finger panning to the
-  // page while it is fitted (so the board never traps a scroll) and takes it
-  // back once zoomed in, where a drag has somewhere to go; pinch-zoom is never
-  // in that list, so a second finger always arrives here as a pointer.
-  var pinch = new Map();          // pointerId -> {x, y}
-  var pinchSpan = 0, pinchMidX = 0, pinchMidY = 0;
-  function pinchGeometry() {
-    var pts = Array.from(pinch.values());
-    var dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
-    return {
-      span: Math.max(1, Math.hypot(dx, dy)),
-      midX: (pts[0].x + pts[1].x) / 2,
-      midY: (pts[0].y + pts[1].y) / 2
-    };
-  }
-  function beginPinch() {
-    var g = pinchGeometry();
-    pinchSpan = g.span;
-    pinchMidX = g.midX;
-    pinchMidY = g.midY;
-    dragging = false;             // two fingers is a pinch, not a drag
-  }
 
   function syncTouchAction(t) {
-    // Fitted: the page owns one-finger drags. Zoomed: the board does.
+    // Fitted whole, always: the page owns one-finger drags over the board.
     canvas.style.touchAction = (t && t.zoom > 1) ? 'none' : 'pan-x pan-y';
   }
 
   canvas.addEventListener('pointerdown', function (ev) {
-    if (ev.pointerType === 'touch') {
-      pinch.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if (pinch.size === 2) { beginPinch(); return; }
-      if (pinch.size > 2) return;
-    }
     if (ev.button !== 0) return;
     dragging = true;
     dragMoved = 0;
@@ -3957,36 +3876,13 @@ body[data-embed] #board { top: 0; height: 100%; }
     lastDragY = ev.clientY;
   });
   window.addEventListener('pointermove', function (ev) {
-    if (pinch.has(ev.pointerId)) {
-      pinch.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
-      if (pinch.size === 2) {
-        var g = pinchGeometry();
-        var rect = canvas.getBoundingClientRect();
-        // Zoom by how much the fingers spread, then pan by how far the pair
-        // travelled, so the board tracks the hand instead of only the spread.
-        core.zoomAt(g.span / pinchSpan, g.midX - rect.left, g.midY - rect.top);
-        core.panBy(g.midX - pinchMidX, g.midY - pinchMidY);
-        pinchSpan = g.span;
-        pinchMidX = g.midX;
-        pinchMidY = g.midY;
-        dragMoved = 999;          // a pinch must never also select a cog
-        return;
-      }
-    }
     if (!dragging) return;
     var dx = ev.clientX - lastDragX, dy = ev.clientY - lastDragY;
     lastDragX = ev.clientX;
     lastDragY = ev.clientY;
     dragMoved += Math.abs(dx) + Math.abs(dy);
-    core.panBy(dx, dy);
-    var t = core.getTransform();
-    canvas.style.cursor = t && t.zoom > 1 ? 'grabbing' : '';
   });
-  function endPointer(ev) {
-    if (ev && pinch.has(ev.pointerId)) {
-      pinch.delete(ev.pointerId);
-      if (pinch.size === 2) beginPinch();
-    }
+  function endPointer() {
     dragging = false;
     canvas.style.cursor = '';
   }
@@ -4006,22 +3902,6 @@ body[data-embed] #board { top: 0; height: 100%; }
     if (!t) return;
     syncTouchAction(t);
     if (!dragging) canvas.style.cursor = '';
-  }
-  // One arrow press, in LOGICAL map pixels — a fixed cell of ground. 64px is
-  // eight of the engine's fog-of-war cells (FovCellSize) and a bit over five
-  // cog widths: ~19 cells across the 1235px arena, ~39 across a 2496px 4-team
-  // board, so shift (ten cells) crosses either in a couple of presses while a
-  // single press is still a step you can aim with.
-  var PAN_CELL_MAP_PX = 64;
-
-  // The view is measured in BOARD pixels and a cell is defined in WORLD pixels,
-  // and the two differ by the board's supersample factor — which is per-board
-  // (an oversize map renders 1x, a normal one at RenderScale), so the server
-  // states it per frame as `bs`. Falling back to 1 makes an un-stated board
-  // step a cell of board pixels: smaller ground per press, never a broken key.
-  function panCellBoardPx() {
-    var bs = lastState && lastState.bs > 0 ? lastState.bs : 1;
-    return PAN_CELL_MAP_PX * bs;
   }
   canvas.addEventListener('dblclick', function (ev) {
     ev.preventDefault();

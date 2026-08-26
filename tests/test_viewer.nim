@@ -51,11 +51,17 @@ suite "the broadcast chrome":
         continue
       code.add(line)
       code.add("\n")
+    ## The WIRING goes with the panel, not just its markup: a fixed arena that
+    ## keeps ctrl+wheel, the Safari gesture pair or a two-finger pinch still
+    ## zooms a board that is always fitted, with no control left to undo it.
     for gone in ["id=\"viewpanel\"", "id=\"zoombar\"", "id=\"zoom-in\"",
                  "id=\"zoom-out\"", "id=\"zoom-slider\"", "id=\"zoom-read\"",
                  "id=\"minimap\"", "id=\"minimap-canvas\"",
                  "#viewpanel", "#zoombar", "#zoom-slider", "#zoom-read",
-                 "attachMinimap(", "ZOOM_STEP", "SLIDER_TRAVEL"]:
+                 "attachMinimap(", "ZOOM_STEP", "SLIDER_TRAVEL",
+                 "core.zoomAt(", "core.setZoom(", "core.panBy(",
+                 "core.panByMap(", "'gesturestart'", "'gesturechange'",
+                 "'gestureend'", "'wheel'"]:
       if gone in code:
         echo "still present: ", gone
       check gone notin code
