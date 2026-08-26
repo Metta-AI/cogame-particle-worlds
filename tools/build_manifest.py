@@ -310,7 +310,11 @@ def variant_config(rounds: list[str]) -> dict:
     config["slots"] = [
         {"team": "red"}, {"team": "blue"}, {"team": "green"}, {"team": "yellow"}
     ]
-    config["tokens"] = [f"token-{i}" for i in range(SEATS)]
+    # No `tokens`: they are RUNNER-managed. `game.config_schema` must declare and require
+    # them (the CLI injects one per seated player before validating), but an authored
+    # game_config that carries them fails certification at `matriculate` with
+    # `manifest_invalid: game_config must not include runner-managed tokens`
+    # (coworld 0.1.42 manifest_validation.game_config_with_tokens; particle-worlds 0.1.0).
     return config
 
 
@@ -324,7 +328,6 @@ def certification() -> dict:
         "slots": [
             {"team": "red"}, {"team": "blue"}, {"team": "green"}, {"team": "yellow"}
         ],
-        "tokens": [f"t{i}" for i in range(SEATS)],
         "num_agents": SEATS,
         "minPlayers": SEATS,
         "teams": 4,

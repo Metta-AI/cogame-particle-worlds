@@ -760,12 +760,6 @@
           {
             "team": "yellow"
           }
-        ],
-        "tokens": [
-          "token-0",
-          "token-1",
-          "token-2",
-          "token-3"
         ]
       }
     },
@@ -855,12 +849,6 @@
           {
             "team": "yellow"
           }
-        ],
-        "tokens": [
-          "token-0",
-          "token-1",
-          "token-2",
-          "token-3"
         ]
       }
     },
@@ -950,12 +938,6 @@
           {
             "team": "yellow"
           }
-        ],
-        "tokens": [
-          "token-0",
-          "token-1",
-          "token-2",
-          "token-3"
         ]
       }
     },
@@ -1045,12 +1027,6 @@
           {
             "team": "yellow"
           }
-        ],
-        "tokens": [
-          "token-0",
-          "token-1",
-          "token-2",
-          "token-3"
         ]
       }
     },
@@ -1140,12 +1116,6 @@
           {
             "team": "yellow"
           }
-        ],
-        "tokens": [
-          "token-0",
-          "token-1",
-          "token-2",
-          "token-3"
         ]
       }
     }
@@ -1193,12 +1163,6 @@
         {
           "team": "yellow"
         }
-      ],
-      "tokens": [
-        "t0",
-        "t1",
-        "t2",
-        "t3"
       ],
       "num_agents": 4,
       "minPlayers": 4,

@@ -15,8 +15,16 @@ proc mapItStr(items: seq[JsonNode]): seq[string] =
 let manifest = manifestJson()
 
 proc configFrom(node: JsonNode): GameConfig =
+  ## `tokens` are RUNNER-managed and must not appear in an authored game_config
+  ## (coworld 0.1.42 rejects one at `matriculate`), so the test injects them the
+  ## way the runner does before constructing the sim.
+  var withTokens = copy(node)
+  var tokens = newJArray()
+  for seat in 0 ..< FixtureSeats:
+    tokens.add(%("token-" & $seat))
+  withTokens["tokens"] = tokens
   result = defaultGameConfig()
-  result.update($node)
+  result.update($withTokens)
 
 suite "the manifest":
 
@@ -28,13 +36,17 @@ suite "the manifest":
       check variant["description"].getStr().len > 40
       check variant["game_config"]["players"].len == FixtureSeats
       check variant["game_config"]["slots"].len == FixtureSeats
-      check variant["game_config"]["tokens"].len == FixtureSeats
+      ## `tokens` are runner-managed: the schema requires them and the runner
+      ## injects one per seated player, but an authored game_config carrying
+      ## them fails certification `manifest_invalid: game_config must not
+      ## include runner-managed tokens` (particle-worlds 0.1.0).
+      check not variant["game_config"].hasKey("tokens")
     let cert = manifest["certification"]
     check cert["game_config"]["num_agents"].getInt() == FixtureSeats
     check cert["players"].len == FixtureSeats
     check cert["game_config"]["players"].len == FixtureSeats
     check cert["game_config"]["slots"].len == FixtureSeats
-    check cert["game_config"]["tokens"].len == FixtureSeats
+    check not cert["game_config"].hasKey("tokens")
     ## EVERY declared player must occupy a certification slot (the raid 0.1.2
     ## players_missing scar).
     var declared: HashSet[string]
