@@ -228,3 +228,7 @@ Written to `COGAME_RESULTS_URI`, and equal to the manifest's `results_schema` ke
 schema is `additionalProperties: false`. Exactly 22 keys; see the manifest and
 `src/mpe/roster.nim`'s `particleResultsJson`. The ten seat-indexed arrays have exactly
 `num_agents` = 4 entries; the six round-indexed arrays carry one entry per round played (1..4).
+
+`bumps` is the **last round's** bump ticks per seat, not an episode total: the counter is zeroed at
+the start of every round because the `spread` debit is a per-round term. Every other seat-indexed
+array (`roundScores`, `llmTurns`, `fallbackTurns`, `means`) is per episode.

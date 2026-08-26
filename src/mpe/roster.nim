@@ -711,6 +711,12 @@ proc particleResultsJson*(sim: SimServer): string =
       seatRounds.add(%0.0)
     roles.add(seatRoles)
     roundScores.add(seatRounds)
+    ## `bumps` is the LAST round's bump ticks per seat, not an episode total:
+    ## `beginRound` zeroes the counter every round because the `spread` debit
+    ## is a per-round term (scoring.nim:156). An episode total would need a
+    ## second, hashed accumulator -- a gameHash change and therefore a
+    ## GameVersion bump -- so the number stays per-round and docs/PROTOCOL.md
+    ## says so.
     bumps.add(%sim.bumps[min(seat, 3)])
     llmTurns.add(%(if seat < sim.llmTurns.len: sim.llmTurns[seat] else: 0))
     fallbackTurns.add(
