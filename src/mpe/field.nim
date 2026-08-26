@@ -96,7 +96,13 @@ proc episodePerm*(seed: int): array[4, int] =
   ## the config seed rather than off the live sim RNG, so it is a pure function
   ## of the config a replay already carries and cannot shift if a later round
   ## draws a different number of samples.
-  var rng = initRand(seed * 2 + 1)
+  ##
+  ## The derivation widens to `int64` FIRST. An unpinned episode gets a
+  ## crypto-random 31-bit seed, and Nim's `int` is 32-bit under --cpu:wasm32,
+  ## so `seed * 2 + 1` overflows in the wasm viewer for every seed above 2^30 —
+  ## which killed initReplayRuntime with "over- or underflow" before it drew a
+  ## frame on roughly half of all episodes. `initRand` takes an int64 anyway.
+  var rng = initRand(int64(seed) * 2 + 1)
   drawPermutation(rng)
 
 proc planEpisode*(sim: var SimServer) =

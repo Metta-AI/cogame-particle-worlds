@@ -77,6 +77,20 @@ container ships and could differ by an ulp between the amd64 game image and the
 emscripten viewer image. Accumulators use `int64` where a 1080-tick sum of
 permille could approach the 32-bit range.
 
+## Rehearsing the wasm build without emsdk
+
+`tools/int32_rehearsal.nim` compiles the replay-runtime path for `--cpu:i386`,
+which gives the same 32-bit `int` the wasm32 bundle has, and runs the whole
+timeline against a recorded replay. Run it before pushing anything that touches
+the hashed path; it catches in seconds what `ci.yml`'s `wasm-viewer` job would
+otherwise catch twelve minutes later.
+
+```bash
+nim c --cpu:i386 --passC:-m32 --passL:-m32 -d:release --path:src \
+  -o:/tmp/int32_rehearsal tools/int32_rehearsal.nim
+/tmp/int32_rehearsal dist/smoke/replay.json
+```
+
 ## Strings
 
 Every string that reaches the replay is truncated on **rune** boundaries
