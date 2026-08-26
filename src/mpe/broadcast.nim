@@ -64,7 +64,7 @@ proc initBroadcastTracker*(): BroadcastTracker =
   ## The `tag` beat throttle starts open: a contact on tick 0 of the episode is
   ## still the first contact, and a zero start would swallow every beat inside
   ## the first TagBeatThrottleTicks ticks.
-  result.tagBeatTick = low(int32).int
+  result.tagBeatTick = NeverTick
   result.coverBand = -1
 
 # policyName moved to sim_types.nim (the join path needs it to resolve perk

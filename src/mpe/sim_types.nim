@@ -644,6 +644,17 @@ const
                                   ## FOUR seats per turn at 9 s = 26.7 req/min,
                                   ## under the sidecar's 30/min per-episode cap
                                   ## (raid, 2026-08-23).
+  NeverTick* = -1_000_000         ## "this has not happened yet" for a tick
+                                  ## throttle. NOT low(int): Nim's `int` is
+                                  ## 32-bit under --cpu:wasm32 and every
+                                  ## throttle is `tick - lastTick`, so a
+                                  ## low(int32) sentinel OVERFLOWS on the very
+                                  ## first comparison and the wasm viewer dies
+                                  ## with "over- or underflow" before it draws
+                                  ## a frame (release builds keep overflow
+                                  ## checks; only -d:danger drops them). A
+                                  ## million ticks is 11 hours of play, four
+                                  ## orders of magnitude past any episode.
   BumpEventThrottleTicks* = 12    ## min ticks between two `bump` events for one
                                   ## pair, so a jostle cannot flood the feed.
   TagEventThrottleTicks* = 12     ## quiet ticks a contact must follow to emit a

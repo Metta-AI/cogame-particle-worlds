@@ -19,46 +19,45 @@ proc closeness*(distance, closeScalePx: int): int =
   ## further, linear in between. Monotone non-increasing by construction.
   1000 - min(1000, distance * 1000 div max(1, closeScalePx))
 
-proc distanceTo*(sim: SimServer, seat, mark: int): int =
-  ## Centre-to-centre distance in map pixels, as an integer square root of the
-  ## integer squared distance (no floating point anywhere on the hashed path).
-  let
-    (px, py) = sim.particleCentre(seat)
-    (mx, my) = sim.markCentre(mark)
+proc isqrt*(value: int): int =
+  ## Integer square root, bit by bit, INTEGER ONLY — the hashed path may not
+  ## call `sqrt` (see the module header). `1 shl 30` is 4^15, a power of FOUR
+  ## and the largest one that fits a 32-bit `int` (Nim's `int` is 32-bit under
+  ## --cpu:wasm32), which is what this algorithm requires as its starting bit:
+  ## a power of two with an ODD exponent silently returns the wrong root.
+  ## The board's largest squared distance is 1234^2 + 658^2 = 1_955_720, so the
+  ## leading shift loop always terminates well inside the range.
+  if value <= 0:
+    return 0
   var
-    d2 = distSq(px, py, mx, my)
+    rest = value
     root = 0
-    bit = 1 shl 15
-  while bit > d2:
+    bit = 1 shl 30
+  while bit > rest:
     bit = bit shr 2
   while bit != 0:
-    if d2 >= root + bit:
-      d2 -= root + bit
+    if rest >= root + bit:
+      rest -= root + bit
       root = (root shr 1) + bit
     else:
       root = root shr 1
     bit = bit shr 2
   root
 
+proc distanceTo*(sim: SimServer, seat, mark: int): int =
+  ## Centre-to-centre distance in map pixels (no floating point anywhere on the
+  ## hashed path).
+  let
+    (px, py) = sim.particleCentre(seat)
+    (mx, my) = sim.markCentre(mark)
+  isqrt(distSq(px, py, mx, my))
+
 proc distanceBetween*(sim: SimServer, a, b: int): int =
   ## Integer centre-to-centre distance between two particles.
   let
     (ax, ay) = sim.particleCentre(a)
     (bx, by) = sim.particleCentre(b)
-  var
-    d2 = distSq(ax, ay, bx, by)
-    root = 0
-    bit = 1 shl 15
-  while bit > d2:
-    bit = bit shr 2
-  while bit != 0:
-    if d2 >= root + bit:
-      d2 -= root + bit
-      root = (root shr 1) + bit
-    else:
-      root = root shr 1
-    bit = bit shr 2
-  root
+  isqrt(distSq(ax, ay, bx, by))
 
 proc coverPermille*(sim: SimServer): int =
   ## `spread`'s per-tick coverage term: for each of the four marks, the

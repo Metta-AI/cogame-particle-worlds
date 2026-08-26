@@ -211,7 +211,7 @@ proc beginRound*(sim: var SimServer, roundIndex: int) =
     sim.bumps[seat] = 0
     sim.tagCredit[seat] = 0
     sim.tagContact[seat] = false
-    sim.lastTagTick[seat] = low(int32).int
+    sim.lastTagTick[seat] = NeverTick
     sim.nearestMark[seat] = -1
     sim.settledTicks[seat] = 0
     sim.decodedMark[seat] = -1
@@ -220,7 +220,7 @@ proc beginRound*(sim: var SimServer, roundIndex: int) =
     sim.commPrev[seat] = 0
     sim.commTurn[seat] = -1
   for i in 0 ..< sim.lastBumpTick.len:
-    sim.lastBumpTick[i] = low(int32).int
+    sim.lastBumpTick[i] = NeverTick
   sim.coverAccum = 0
   sim.tagTicks = 0
   sim.placeParticles()
