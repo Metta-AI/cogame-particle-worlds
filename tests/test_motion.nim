@@ -4,7 +4,7 @@
 ## exact arithmetic, the wall behaviour, the particle-on-particle bounce, the
 ## anchored speaker and the float-free rule.
 
-import std/[strutils, unittest]
+import std/[sets, strutils, tables, unittest]
 import bitworld/spriteprotocol
 import ../src/mpe/sim
 import fixture
@@ -119,9 +119,18 @@ suite "particle motion":
 
   test "the hashed path is float-free":
     ## Nim's `int` is 32-bit under --cpu:wasm32 and the wasm viewer re-derives
-    ## every tick, so a compile-time cos/sin evaluated by whichever libm the
-    ## build container ships could differ by an ulp between the amd64 game image
-    ## and the emscripten viewer image. These modules are integer-only.
+    ## every tick, so a cos/sin evaluated by whichever libm the build container
+    ## ships could differ by an ulp between the amd64 game image and the
+    ## emscripten viewer image.
+    ##
+    ## The design note names EIGHT modules:
+    ## src/mpe/{sim,sim_types,sim_state,field,motion,scoring,beliefs,control}.
+    ## Four of them are integer-only END TO END and are checked line by line.
+    ## The other four still carry the starter's deleted-mechanics residue
+    ## (spray cones, gun jitter, grenade flight, FOV, flag pedestals), which is
+    ## float and which `sim.step` never reaches -- so they are checked by
+    ## REACHABILITY instead of by omission: every proc reachable from `step`
+    ## through those eight modules must be free of libm.
     const banned = ["sin(", "cos(", "tan(", "arctan", "sqrt(", "hypot(",
                     "float"]
     proc callsBanned(code, needle: string): bool =
@@ -137,7 +146,8 @@ suite "particle motion":
         if not (before.isAlphaNumeric() or before == '_'):
           return true
         start = at + 1
-    for module in ["field", "motion", "scoring", "beliefs"]:
+
+    for module in ["field", "motion", "scoring", "beliefs", "control"]:
       let source = sourceOf("src/mpe/" & module & ".nim")
       for line in source.splitLines():
         let code = line.split("##")[0].split("#")[0]
@@ -145,6 +155,97 @@ suite "particle motion":
           if code.callsBanned(needle):
             echo module, ".nim: ", line
           check not code.callsBanned(needle)
+
+    ## --- and the whole reachable path, across all eight modules -----------
+    type Definition = object
+      module: string
+      body: seq[string]
+    var defs: Table[string, seq[Definition]]
+    const Routines = ["proc ", "func ", "template ", "method ", "iterator ",
+                      "converter "]
+    for module in ["sim", "sim_types", "sim_state", "field", "motion",
+                   "scoring", "beliefs", "control"]:
+      var current = ""
+      for line in sourceOf("src/mpe/" & module & ".nim").splitLines():
+        var isRoutine = false
+        for keyword in Routines:
+          if line.startsWith(keyword):
+            isRoutine = true
+            break
+        if isRoutine:
+          ## `proc someName*(a, b: int): int =` -- take the identifier.
+          var name = line.split(' ')[1]
+          for stop in ["*", "(", "[", ":", "`"]:
+            let at = name.find(stop)
+            if at >= 0:
+              name = name[0 ..< at]
+          current = name
+          if current.len > 0:
+            if current notin defs:
+              defs[current] = @[]
+            defs[current].add(Definition(module: module, body: @[]))
+          continue
+        if line.len == 0:
+          continue
+        ## A signature can continue past column 0 with `) {.measure.} =`, so a
+        ## leading `)` is part of the routine, not the end of it.
+        if line[0] in {' ', '\t', ')'}:
+          if current.len > 0:
+            defs[current][^1].body.add(line.split("##")[0].split("#")[0])
+        else:
+          current = ""
+
+    ## Every identifier in a body that names a routine in these modules counts
+    ## as a call. That OVER-approximates the reachable set, which is the safe
+    ## direction: it can only make the check stricter.
+    proc identifiers(line: string): seq[string] =
+      var word = ""
+      for c in line & " ":
+        if c.isAlphaNumeric() or c == '_':
+          word.add(c)
+        else:
+          if word.len > 0 and not word[0].isDigit():
+            result.add(word)
+          word = ""
+
+    var
+      reachable: HashSet[string]
+      pending = @["step"]
+    while pending.len > 0:
+      let name = pending.pop()
+      if name in reachable or name notin defs:
+        continue
+      reachable.incl(name)
+      for definition in defs[name]:
+        for line in definition.body:
+          for word in line.identifiers():
+            if word in defs and word notin reachable:
+              pending.add(word)
+    echo "reachable from sim.step: ", reachable.len, " routines"
+    check reachable.len > 80          ## the walk really walked
+
+    ## The ONE documented exception, and it is checked for BOTH halves: an
+    ## int -> float conversion (exact in IEEE754, no libm) that builds the
+    ## coordinates of an unhashed FX EVENT for the starter's flag pedestal.
+    ## Nothing it touches reaches gameHash. Listing it here rather than
+    ## dropping the module keeps the check honest: if it stops being reachable
+    ## or stops carrying a float, this test says so.
+    const FloatConversionOnly = "resetFlag"
+    var sawException = false
+    for name in reachable.items:
+      for definition in defs[name]:
+        for line in definition.body:
+          for needle in banned:
+            if not line.callsBanned(needle):
+              continue
+            if name == FloatConversionOnly and needle == "float" and
+                "float(sim.flags[team]." in line:
+              sawException = true
+              continue
+            echo "REACHABLE FLOAT: ", definition.module, ".nim ", name,
+              " -> ", line.strip()
+            check false
+    check sawException
 
   test "the same seed reproduces a byte-identical position stream":
     proc trace(seed: int): string =
