@@ -525,8 +525,6 @@ const
   DefaultTurnBudgetMs* = 10_000 ## hard monotonic cap around one whole turn.
   DefaultAttempt1Ms* = 6000     ## first parallel batch deadline (6 s exactly).
   DefaultRetryMs* = 3000        ## single retry batch deadline (6 + 3 <= 10).
-  DefaultTurnSpacingMs* = 5000  ## wall-clock floor between batch STARTS; holds
-                                ## 2 seats under the sidecar's 30 req/min cap.
   DefaultWallClockBudgetSeconds* = 690
                                 ## engine hard stop, 57.5% of the assumed 1200 s
                                 ## episodeTimeoutSeconds (the 60% pin).
@@ -652,10 +650,16 @@ const
   DefaultEvadeProbePx* = 200      ## `evade` probe radius (16 fixed brads).
   DefaultSymbolCount* = 8         ## A..H, plus "-" for silence = 9 values.
   DefaultParticleTurnSpacingMs* = 9000
-                                  ## wall-clock floor between batch STARTS.
-                                  ## FOUR seats per turn at 9 s = 26.7 req/min,
-                                  ## under the sidecar's 30/min per-episode cap
-                                  ## (raid, 2026-08-23).
+                                  ## wall-clock floor between batch STARTS, and
+                                  ## the ONE in-code default (sim_config.nim)
+                                  ## as well as the value every shipped variant
+                                  ## and the config schema carry. FOUR seats per
+                                  ## turn at 9 s = 26.7 req/min, under the
+                                  ## sidecar's 30/min per-episode cap (raid,
+                                  ## 2026-08-23). The 5000 that used to sit in
+                                  ## the base config was a two-seat number no
+                                  ## shipped config could pick up, and four
+                                  ## seats at 5 s would be 48 req/min.
   NeverTick* = -1_000_000         ## "this has not happened yet" for a tick
                                   ## throttle. NOT low(int): Nim's `int` is
                                   ## 32-bit under --cpu:wasm32 and every
