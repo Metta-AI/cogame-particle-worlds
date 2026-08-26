@@ -41,6 +41,36 @@ suite "the field":
       sim.config.landmarkSpacingPx, " px spacing"
     check wide * 100 >= trials * 95        ## >= 95% keep the full spacing
 
+  test "the sampler is BOUNDED even when no legal placement exists":
+    ## "Terminates on 10 000 seeds" is convergence, not a bound. landmarkMargin
+    ## is a hosted config field the schema allows up to 600, and at 600 the
+    ## placement box is a 34 px strip in which four marks 120 px apart do not
+    ## exist -- the old `while true` would have spun there until the episode
+    ## timed out. The draw now gives up after MaxLandmarkDraws and sweeps a
+    ## lattice, so this test RETURNING is the assertion.
+    var config = fixtureConfig()
+    config.landmarkMargin = 600            ## set directly: update() rejects it
+    var sim = initSimServer(config)
+    sim.rng = initRand(20260826)
+    sim.beginRound(0)
+    check sim.landmarks.len == LandmarkCount
+    for mark in sim.landmarks:
+      check mark.x >= 0
+      check mark.x < MapWidth
+      check mark.y >= 0
+      check mark.y < MapHeight
+
+  test "a placement box too small for four marks is rejected as a config":
+    ## And a hosted config never reaches that fallback in the first place.
+    var config = fixtureConfig()
+    config.landmarkMargin = 600
+    expect MpeError:
+      config.update("{}")
+    var ok = fixtureConfig()
+    ok.landmarkMargin = 140                ## the shipped value still validates
+    ok.update("{}")
+    check ok.landmarkMargin == 140
+
   test "mark colours are a permutation of the four palette colours":
     var sim = initSimServer(fixtureConfig())
     for seed in 0 ..< 500:

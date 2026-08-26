@@ -116,12 +116,29 @@ proc planEpisode*(sim: var SimServer) =
 proc centreOfField*(): tuple[x, y: int] {.inline.} =
   (MapWidth div 2, MapHeight div 2)
 
+const
+  MaxLandmarkDraws = 4000
+    ## The HARD cap on one mark's rejection draws. The sampler converges in a
+    ## handful of draws on every real board (`tests/test_field.nim` runs 10 000
+    ## seeds), but "terminates in practice" is not a bound: `landmarkMargin` is
+    ## a hosted config field the schema allows up to 600, and a margin that
+    ## large leaves a 34 x 1 px placement box in which four marks 120 px apart
+    ## do not exist — the loop was a `while true` and would have spun until the
+    ## episode timed out. Past the cap the placement falls back to the bounded
+    ## deterministic sweep below, which draws no further random numbers, so the
+    ## seeded draw order is byte-identical for every seed that ever terminated.
+  LandmarkSweepStepPx = 20
+    ## The sweep's lattice step: 20 px over the whole placement box.
+
 proc drawLandmarks(sim: var SimServer) =
   ## Bounded rejection sampling, exactly the design's loop: four marks at least
   ## `landmarkSpacingPx` apart on non-wall floor, with the spacing relaxed by
   ## 20 px every 400 attempts and floored at MinLandmarkSpacingPx — so it
-  ## ALWAYS terminates, on every seed, which `tests/test_field.nim` proves over
-  ## 10 000 of them.
+  ## terminates in a handful of draws on every seed, which `tests/test_field.nim`
+  ## proves over 10 000 of them. It is also bounded IN FORM: after
+  ## `MaxLandmarkDraws` rejected draws it stops drawing and sweeps a lattice
+  ## for the most isolated walkable point instead. Nothing reaches that path on
+  ## a shipped board.
   let
     margin = max(1, sim.config.landmarkMargin)
     spanX = max(1, MapWidth - 1 - 2 * margin)
@@ -134,7 +151,8 @@ proc drawLandmarks(sim: var SimServer) =
       attempts = 0
       x = 0
       y = 0
-    while true:
+      settled = false
+    while attempts < MaxLandmarkDraws:
       x = margin + sim.rng.rand(spanX)
       y = margin + sim.rng.rand(spanY)
       inc attempts
@@ -145,9 +163,36 @@ proc drawLandmarks(sim: var SimServer) =
             ok = false
             break
       if ok:
+        settled = true
         break
       if attempts mod 400 == 0:
         spacing = max(MinLandmarkSpacingPx, spacing - 20)
+    if not settled:
+      ## The bounded fallback: the walkable lattice point FARTHEST from every
+      ## mark already placed. Deterministic, no RNG, at most
+      ## (spanX/20 + 1) * (spanY/20 + 1) probes. A box this cramped is a
+      ## config the sim guard will fault on anyway (it asserts the 120 px
+      ## floor); faulting is a bounded outcome and spinning is not.
+      var
+        bestGap = -1
+        bestX = clamp(margin, 0, MapWidth - 1)
+        bestY = clamp(margin, 0, MapHeight - 1)
+        gy = margin
+      while gy <= margin + spanY:
+        var gx = margin
+        while gx <= margin + spanX:
+          if sim.isWalkable(gx, gy):
+            var gap = high(int)
+            for placed in sim.landmarks:
+              gap = min(gap, distSq(placed.x, placed.y, gx, gy))
+            if gap > bestGap:
+              bestGap = gap
+              bestX = gx
+              bestY = gy
+          gx += LandmarkSweepStepPx
+        gy += LandmarkSweepStepPx
+      x = bestX
+      y = bestY
     sim.landmarks.add(Landmark(x: x, y: y, colour: colours[i]))
 
 proc drawKey(sim: var SimServer) =

@@ -789,6 +789,23 @@ proc validate(config: GameConfig) =
       MpeError,
       "Config field landmarkSpacingPx must be at least " &
         $MinLandmarkSpacingPx & ": the sim guard asserts that floor.")
+  ## The placement box has to be able to HOLD the four marks at the 120 px
+  ## floor the sim guard asserts. `landmarkMargin` is a hosted config field the
+  ## schema allows up to 600, and a margin that large leaves a 34 px strip in
+  ## which no such placement exists: reject the config here rather than hand
+  ## field.nim a sampler that can only fail (it is bounded now, and would place
+  ## marks the guard then faults on).
+  let
+    landmarkBox = max(
+      MapWidth - 1 - 2 * max(1, config.landmarkMargin),
+      MapHeight - 1 - 2 * max(1, config.landmarkMargin))
+    landmarkNeed = (LandmarkCount - 1) * MinLandmarkSpacingPx
+  if landmarkBox < landmarkNeed:
+    raise newException(
+      MpeError,
+      "Config field landmarkMargin leaves a " & $landmarkBox &
+        " px placement box: " & $LandmarkCount & " marks " &
+        $MinLandmarkSpacingPx & " px apart need " & $landmarkNeed & " px.")
   if config.spawnRingPx < 1:
     raise newException(MpeError, "Config field spawnRingPx must be positive.")
   if config.closeScalePx < 1:
