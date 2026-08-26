@@ -178,3 +178,26 @@ suite "the per-seat observation":
         sim.episodePermille(seat).float / 1000.0) < 1e-9
       check score["this_round_so_far"].getFloat() >= 0.0
       check score["this_round_so_far"].getFloat() <= 1.0
+
+  test "a tag round reports a LIVE round score, not a flat zero":
+    ## `tag` never writes roundAccum (it scores from the contact counters at
+    ## round end), so reading roundAccum told every seat in every tag round
+    ## that its score so far was 0.000 -- while the spectator frame, which
+    ## special-cases the mode, showed the real number.
+    var sim = seatedSim(fixtureConfig(@[modeTag]))
+    let evader = sim.seatWithRole(0)
+    check evader >= 0
+    ## Nobody has touched the evader yet, so its live score is a full 1.000 and
+    ## every pursuer's is 0.000 -- both computed, neither assumed.
+    check abs(sim.viewOf(evader)["score"]["this_round_so_far"].getFloat() -
+      1.0) < 1e-9
+    ## And a pursuer that HAS banked contact reads back its own credit.
+    for seat in 0 ..< 4:
+      if seat == evader:
+        continue
+      sim.tagCredit[seat] = sim.config.tagTargetTicks div 2
+      let live = sim.viewOf(seat)["score"]["this_round_so_far"].getFloat()
+      check live > 0.0
+      check abs(live -
+        sim.tagRoundPermille(seat, max(1, sim.gameTicksElapsed())).float /
+          1000.0) < 1e-9

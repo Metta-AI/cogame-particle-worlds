@@ -160,10 +160,17 @@ proc seatViewJson*(
   var banked = newJArray()
   for entry in sim.roundLog:
     banked.add(%(entry.permille[min(max(0, seat), 3)].float / 1000.0))
+  ## `tag` scores from the contact counters at round end and never writes
+  ## `roundAccum` (scoring.nim:132), so reading roundAccum told every seat in
+  ## every tag round that its round score so far was 0.000 while the spectator
+  ## frame showed the real number. The seat view computes it the way
+  ## broadcast.nim:1052 does, from the same live term.
   let
     elapsed = max(1, sim.gameTicksElapsed())
-    soFar = clamp(int(sim.roundAccum[min(max(0, seat), 3)] div elapsed),
-                  0, 1000)
+    scoreSeat = min(max(0, seat), 3)
+    soFar =
+      if sim.mode == modeTag: sim.tagRoundPermille(scoreSeat, elapsed)
+      else: clamp(int(sim.roundAccum[scoreSeat] div elapsed), 0, 1000)
 
   var node = %*{
     "round": sim.roundIndex + 1,
