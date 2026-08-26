@@ -109,6 +109,17 @@ suite "the turn loop":
 
   bootFake()
 
+  test "the system prompt describes the controller the seats actually get":
+    ## A model reasoning from "shadow stands off 60 px" plans a tag pursuit it
+    ## will not get: the control layer forces a pursuer onto the EVADER and
+    ## closes to tagPx div 2 (control.goalFor, pinned by test_control). The
+    ## prompt has to say so, or the two disagree about the same word.
+    check "EXCEPT in TAG" in SystemPrompt
+    check "closes to" in SystemPrompt
+    check "20-pixel tag radius" in SystemPrompt
+    var sim = seatedSim(fixtureConfig(@[modeTag]))
+    check sim.config.tagPx == 20
+
   test "the client picks up the fake Bedrock endpoint":
     var sim = seatedSim(fixtureConfig())
     let client = newLlmClient(sim.config)
