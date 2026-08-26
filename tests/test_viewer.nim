@@ -3,9 +3,10 @@
 ## the STARTER'S chrome plus one appended game block, that the transport rules
 ## hold, and that the beat CSS is exactly the set the sim emits.
 
-import std/[json, os, strutils, unittest]
+import std/[json, os, strutils, unicode, unittest]
 import crunchy/sha256
-import ../src/mpe/[sim, broadcast]
+import ../src/mpe/[sim, broadcast, directives]
+import ../tools/fixture_frame
 import fixture
 
 proc sha256Hex(text: string): string =
@@ -241,6 +242,50 @@ suite "the broadcast chrome":
     ## And the chrome really reads them.
     for key in ["s.marks", "s.comm", "s.crypto", "s.mode", "s.round"]:
       check key in page
+
+  test "the worst-case renderer fixture loads the SHIPPED page and frame":
+    ## Checklist item 15's fixture is only evidence if it runs the code that
+    ## ships. This one boots dist/static-replay-viewer/index.html -- the real
+    ## page, spliced with the real chrome_common.js -- with nothing replaced
+    ## but the wasm shell, and feeds it a frame the SERVER built.
+    let fixture = sourceOf("tools/ci/renderer_fixture.html")
+    check "fetch('./index.html')" in fixture
+    check "renderer_fixture_frame.json" in fixture
+    check "window.MpeStaticReplay" in fixture      ## the one substitution
+    check "data-replay-loaded" in fixture
+    check "data-replay-error" in fixture
+    ## The frame is regenerated from broadcast.buildStateJson here, so a
+    ## committed frame that drifted away from the server (and would render as
+    ## an empty page, measuring nothing) fails in this suite rather than
+    ## passing silently in the browser.
+    let committed = sourceOf("tools/ci/renderer_fixture_frame.json")
+    check committed == worstCaseFramesText()
+    let frame = parseJson(committed)
+    ## And it is still the WORST case: a full-cap note on every seat, a
+    ## non-silent symbol on all four particles, the crypto panel populated,
+    ## every feed-row kind at once and four endcard cards.
+    check frame["playing"]["directives"].len >= 4
+    for record in frame["playing"]["directives"]:
+      check record["note"].getStr().runeLen == MaxNoteRunes
+    check frame["playing"]["comm"].len == 4
+    for entry in frame["playing"]["comm"]:
+      check entry["sym"].getStr().runeLen == 1
+      check entry["sym"].getStr() != SymbolSilence
+    check frame["playing"]["mode"].getStr() == $modeCrypto
+    check frame["playing"]["crypto"]["beliefs"].len == 3
+    check frame["playing"]["marks"].len == LandmarkCount
+    var kinds: seq[string]
+    for event in frame["playing"]["events"]:
+      kinds.add(event["k"].getStr())
+    for required in BeatKinds:
+      check required in kinds
+    check "word" in kinds
+    check "decode" in kinds
+    check frame["gameover"]["over"]["cards"].len == 4
+    ## ci.yml ships both files next to the bundle, or the fetches 404.
+    let ci = sourceOf(".github/workflows/ci.yml")
+    check "renderer_fixture.html dist/static-replay-viewer" in ci
+    check "renderer_fixture_frame.json" in ci
 
   test "the static replay shell keeps BOTH load signals":
     let shell = sourceOf("replay-viewer/static_replay.js")

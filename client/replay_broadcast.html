@@ -4241,6 +4241,20 @@ button.beat-marker {
 }
 
 /* --- the wire: plain-language rows ------------------------------------- */
+/* A commander line is a SENTENCE, not a kill. The starter's row is
+   `white-space: nowrap` with `max-width: none`, on the reasoning that a kill
+   line is "bounded by the small font + the pre-bounded 10-char name, so it
+   can't run away" -- true of "RED-alpha killed BLUE-beta", false of a
+   directive `note`, which the server caps at MaxNoteRunes = 160 runes and
+   which lays out over a thousand pixels wide. #killfeed is right-anchored and
+   its rows grow LEFTWARD, so such a row ran off the left edge of the frame and
+   the whole remark was invisible -- the cogchemists 2026-08-24 failure, caught
+   by tools/ci/renderer_fixture.html. Rows wrap inside the feed's own column
+   instead: the band is sized from the cap the server enforces, is reserved
+   whether or not anyone is speaking (#killfeed's min-height), and nothing the
+   model writes can push text out of the frame. */
+.feed-row { white-space: normal; max-width: 100%; }
+.feed-row .badge { overflow-wrap: anywhere; }
 .feed-row .mpe-say { font-family: var(--pixfont); }
 .feed-row .mpe-note { color: var(--paper-dim); }
 .feed-row .mpe-round-line { color: var(--amber); letter-spacing: 0.08em; }

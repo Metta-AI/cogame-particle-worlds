@@ -1,0 +1,1457 @@
+{
+  "playing": {
+    "t": 708,
+    "mt": 240,
+    "ph": "playing",
+    "lob": 0,
+    "pl": true,
+    "sp": 1,
+    "mx": 960,
+    "st": 0,
+    "lp": false,
+    "sk": false,
+    "ff": false,
+    "en": true,
+    "mm": -1,
+    "bs": 2,
+    "pov": -1,
+    "teams": {
+      "red": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-swarm-champion"
+        ],
+        "seat": 0,
+        "role": "speaker",
+        "mean": 877,
+        "live": 484,
+        "bumps": 0,
+        "sym": "A",
+        "anchored": true
+      },
+      "blue": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-cipher-champion"
+        ],
+        "seat": 1,
+        "role": "eavesdropper",
+        "mean": 877,
+        "live": 514,
+        "bumps": 0,
+        "sym": "B",
+        "anchored": false
+      },
+      "green": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-drifter"
+        ],
+        "seat": 2,
+        "role": "listener",
+        "mean": 449,
+        "live": 484,
+        "bumps": 0,
+        "sym": "C",
+        "anchored": false
+      },
+      "yellow": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-beeline"
+        ],
+        "seat": 3,
+        "role": "eavesdropper",
+        "mean": 877,
+        "live": 485,
+        "bumps": 0,
+        "sym": "D",
+        "anchored": false
+      }
+    },
+    "roster": [
+      {
+        "s": 0,
+        "team": "red",
+        "name": "particle-worlds-swarm-champion",
+        "pol": "particle-worlds-swarm-champion",
+        "col": 3,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "RED-alpha",
+        "seat": 0,
+        "on": "none"
+      },
+      {
+        "s": 1,
+        "team": "blue",
+        "name": "particle-worlds-cipher-champion",
+        "pol": "particle-worlds-cipher-champion",
+        "col": 13,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "BLUE-alpha",
+        "seat": 1,
+        "on": "none"
+      },
+      {
+        "s": 2,
+        "team": "green",
+        "name": "particle-worlds-drifter",
+        "pol": "particle-worlds-drifter",
+        "col": 10,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "GREEN-alpha",
+        "seat": 2,
+        "on": "none"
+      },
+      {
+        "s": 3,
+        "team": "yellow",
+        "name": "particle-worlds-beeline",
+        "pol": "particle-worlds-beeline",
+        "col": 8,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "YELLOW-alpha",
+        "seat": 3,
+        "on": "none"
+      }
+    ],
+    "events": [
+      {
+        "t": 2,
+        "k": "cover",
+        "pct": 60
+      },
+      {
+        "t": 69,
+        "k": "decode",
+        "who": 3,
+        "alias": "YELLOW-alpha",
+        "colour": "yellow",
+        "mark": 1,
+        "markColour": "teal",
+        "right": false,
+        "settled": 48
+      },
+      {
+        "t": 240,
+        "k": "phase",
+        "phase": "gameover"
+      },
+      {
+        "t": 240,
+        "k": "gameover",
+        "winner": "red",
+        "draw": true,
+        "tl": true,
+        "game": 1
+      },
+      {
+        "t": 240,
+        "k": "roundover",
+        "round": 1,
+        "mode": "spread",
+        "permille": [
+          827,
+          827,
+          827,
+          827
+        ]
+      },
+      {
+        "t": 265,
+        "k": "roundstart",
+        "round": 2,
+        "rounds": 4,
+        "mode": "deceive",
+        "roles": [
+          "good",
+          "good",
+          "adversary",
+          "good"
+        ]
+      },
+      {
+        "t": 265,
+        "k": "word",
+        "by": 0,
+        "alias": "RED-alpha",
+        "colour": "red",
+        "symbol": "A",
+        "turn": 0
+      },
+      {
+        "t": 265,
+        "k": "firstword",
+        "by": 0,
+        "alias": "RED-alpha",
+        "colour": "red",
+        "symbol": "A",
+        "round": 2
+      },
+      {
+        "t": 312,
+        "k": "onpoint",
+        "who": 1,
+        "alias": "BLUE-alpha",
+        "colour": "blue",
+        "mark": 3,
+        "markColour": "violet"
+      },
+      {
+        "t": 325,
+        "k": "bump",
+        "a": 0,
+        "b": 2,
+        "aAlias": "RED-alpha",
+        "bAlias": "GREEN-alpha"
+      },
+      {
+        "t": 853,
+        "k": "tag",
+        "by": 0,
+        "alias": "RED-alpha",
+        "colour": "red",
+        "seconds": 0,
+        "tick": 853
+      }
+    ],
+    "round": 3,
+    "rounds": 4,
+    "mode": "crypto",
+    "turnTicks": 108,
+    "turn": 2,
+    "turns": 2,
+    "marks": [
+      {
+        "i": 0,
+        "x": 540,
+        "y": 460,
+        "c": "bone",
+        "near": 7,
+        "close": 986,
+        "goal": false
+      },
+      {
+        "i": 1,
+        "x": 274,
+        "y": 148,
+        "c": "amber",
+        "near": 354,
+        "close": 292,
+        "goal": false
+      },
+      {
+        "i": 2,
+        "x": 1034,
+        "y": 423,
+        "c": "violet",
+        "near": 265,
+        "close": 470,
+        "goal": false
+      },
+      {
+        "i": 3,
+        "x": 713,
+        "y": 155,
+        "c": "teal",
+        "near": 155,
+        "close": 690,
+        "goal": true
+      }
+    ],
+    "comm": [
+      {
+        "seat": 0,
+        "sym": "A",
+        "since": 108
+      },
+      {
+        "seat": 1,
+        "sym": "B",
+        "since": 108
+      },
+      {
+        "seat": 2,
+        "sym": "C",
+        "since": 108
+      },
+      {
+        "seat": 3,
+        "sym": "D",
+        "since": 108
+      }
+    ],
+    "roles": [
+      "speaker",
+      "eavesdropper",
+      "listener",
+      "eavesdropper"
+    ],
+    "roundScores": [
+      [
+        827,
+        928
+      ],
+      [
+        827,
+        928
+      ],
+      [
+        827,
+        71
+      ],
+      [
+        827,
+        928
+      ]
+    ],
+    "livePermille": [
+      484,
+      514,
+      484,
+      485
+    ],
+    "episodePermille": [
+      877,
+      877,
+      449,
+      877
+    ],
+    "crypto": {
+      "goal": 3,
+      "colour": "teal",
+      "key": [
+        [
+          "C",
+          "amber"
+        ],
+        [
+          "G",
+          "teal"
+        ],
+        [
+          "D",
+          "violet"
+        ],
+        [
+          "B",
+          "bone"
+        ]
+      ],
+      "beliefs": [
+        {
+          "seat": 1,
+          "alias": "BLUE-alpha",
+          "mark": 0,
+          "markColour": "bone",
+          "settled": 44,
+          "right": false
+        },
+        {
+          "seat": 2,
+          "alias": "GREEN-alpha",
+          "mark": 0,
+          "markColour": "bone",
+          "settled": 105,
+          "right": false
+        },
+        {
+          "seat": 3,
+          "alias": "YELLOW-alpha",
+          "mark": 0,
+          "markColour": "bone",
+          "settled": 61,
+          "right": false
+        }
+      ]
+    },
+    "bumps": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "directives": [
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 0,
+        "seat": 0,
+        "alias": "RED-alpha",
+        "role": "speaker",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "RED-alpha",
+            "intent": "hold",
+            "target": [
+              847,
+              234
+            ],
+            "symbol": "A",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 0,
+        "seat": 1,
+        "alias": "BLUE-alpha",
+        "role": "eavesdropper",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "BLUE-alpha",
+            "intent": "shadow",
+            "target": [
+              522,
+              99
+            ],
+            "symbol": "B",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 0,
+        "seat": 2,
+        "alias": "GREEN-alpha",
+        "role": "listener",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "GREEN-alpha",
+            "intent": "cover",
+            "target": [
+              540,
+              460
+            ],
+            "symbol": "C",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 0,
+        "seat": 3,
+        "alias": "YELLOW-alpha",
+        "role": "eavesdropper",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "YELLOW-alpha",
+            "intent": "shadow",
+            "target": [
+              522,
+              99
+            ],
+            "symbol": "D",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 1,
+        "seat": 0,
+        "alias": "RED-alpha",
+        "role": "speaker",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "RED-alpha",
+            "intent": "hold",
+            "target": [
+              847,
+              234
+            ],
+            "symbol": "A",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 1,
+        "seat": 1,
+        "alias": "BLUE-alpha",
+        "role": "eavesdropper",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "BLUE-alpha",
+            "intent": "shadow",
+            "target": [
+              547,
+              457
+            ],
+            "symbol": "B",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 1,
+        "seat": 2,
+        "alias": "GREEN-alpha",
+        "role": "listener",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "GREEN-alpha",
+            "intent": "cover",
+            "target": [
+              540,
+              460
+            ],
+            "symbol": "C",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 3,
+        "mode": "crypto",
+        "turn": 1,
+        "seat": 3,
+        "alias": "YELLOW-alpha",
+        "role": "eavesdropper",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "YELLOW-alpha",
+            "intent": "shadow",
+            "target": [
+              547,
+              457
+            ],
+            "symbol": "D",
+            "face": null
+          }
+        ]
+      }
+    ],
+    "beats": [
+      {
+        "t": 240,
+        "k": "roundover",
+        "round": 1,
+        "mode": "spread",
+        "permille": [
+          827,
+          827,
+          827,
+          827
+        ]
+      },
+      {
+        "t": 265,
+        "k": "roundstart",
+        "round": 2,
+        "rounds": 4,
+        "mode": "deceive",
+        "roles": [
+          "good",
+          "good",
+          "adversary",
+          "good"
+        ]
+      },
+      {
+        "t": 265,
+        "k": "firstword",
+        "by": 0,
+        "alias": "RED-alpha",
+        "colour": "red",
+        "symbol": "A",
+        "round": 2
+      },
+      {
+        "t": 312,
+        "k": "onpoint",
+        "who": 1,
+        "alias": "BLUE-alpha",
+        "colour": "blue",
+        "mark": 3,
+        "markColour": "violet"
+      },
+      {
+        "t": 504,
+        "k": "roundover",
+        "round": 2,
+        "mode": "deceive",
+        "permille": [
+          928,
+          928,
+          71,
+          928
+        ]
+      },
+      {
+        "t": 529,
+        "k": "roundstart",
+        "round": 3,
+        "rounds": 4,
+        "mode": "crypto",
+        "roles": [
+          "speaker",
+          "eavesdropper",
+          "listener",
+          "eavesdropper"
+        ]
+      },
+      {
+        "t": 768,
+        "k": "roundover",
+        "round": 3,
+        "mode": "crypto",
+        "permille": [
+          473,
+          525,
+          473,
+          500
+        ]
+      },
+      {
+        "t": 793,
+        "k": "roundstart",
+        "round": 4,
+        "rounds": 4,
+        "mode": "tag",
+        "roles": [
+          "pursuer",
+          "pursuer",
+          "pursuer",
+          "evader"
+        ]
+      },
+      {
+        "t": 853,
+        "k": "tag",
+        "by": 0,
+        "alias": "RED-alpha",
+        "colour": "red",
+        "seconds": 0,
+        "tick": 853
+      },
+      {
+        "t": 1032,
+        "k": "roundover",
+        "round": 4,
+        "mode": "tag",
+        "permille": [
+          58,
+          0,
+          0,
+          970
+        ]
+      }
+    ]
+  },
+  "gameover": {
+    "t": 1032,
+    "mt": 240,
+    "ph": "gameover",
+    "lob": 0,
+    "pl": false,
+    "sp": 1,
+    "mx": 960,
+    "st": 0,
+    "lp": false,
+    "sk": false,
+    "ff": false,
+    "en": true,
+    "mm": -1,
+    "bs": 2,
+    "pov": -1,
+    "teams": {
+      "red": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-swarm-champion"
+        ],
+        "seat": 0,
+        "role": "pursuer",
+        "mean": 571,
+        "live": 58,
+        "bumps": 11,
+        "sym": "A",
+        "anchored": false
+      },
+      "blue": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-cipher-champion"
+        ],
+        "seat": 1,
+        "role": "pursuer",
+        "mean": 570,
+        "live": 0,
+        "bumps": 6,
+        "sym": "B",
+        "anchored": false
+      },
+      "green": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-drifter"
+        ],
+        "seat": 2,
+        "role": "pursuer",
+        "mean": 342,
+        "live": 0,
+        "bumps": 0,
+        "sym": "C",
+        "anchored": false
+      },
+      "yellow": {
+        "lives": 4,
+        "flag": "captured",
+        "carrier": -1,
+        "prog": 0,
+        "policies": [
+          "particle-worlds-beeline"
+        ],
+        "seat": 3,
+        "role": "evader",
+        "mean": 806,
+        "live": 970,
+        "bumps": 5,
+        "sym": "D",
+        "anchored": false
+      }
+    },
+    "roster": [
+      {
+        "s": 0,
+        "team": "red",
+        "name": "particle-worlds-swarm-champion",
+        "pol": "particle-worlds-swarm-champion",
+        "col": 3,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "RED-alpha",
+        "seat": 0,
+        "on": "none"
+      },
+      {
+        "s": 1,
+        "team": "blue",
+        "name": "particle-worlds-cipher-champion",
+        "pol": "particle-worlds-cipher-champion",
+        "col": 13,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "BLUE-alpha",
+        "seat": 1,
+        "on": "none"
+      },
+      {
+        "s": 2,
+        "team": "green",
+        "name": "particle-worlds-drifter",
+        "pol": "particle-worlds-drifter",
+        "col": 10,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "GREEN-alpha",
+        "seat": 2,
+        "on": "none"
+      },
+      {
+        "s": 3,
+        "team": "yellow",
+        "name": "particle-worlds-beeline",
+        "pol": "particle-worlds-beeline",
+        "col": 8,
+        "alive": true,
+        "lives": 3,
+        "hp": 3,
+        "carry": false,
+        "k": 0,
+        "d": 0,
+        "cap": 0,
+        "mk2": 0,
+        "mk3": 0,
+        "tk": 0,
+        "alias": "YELLOW-alpha",
+        "seat": 3,
+        "on": "none"
+      }
+    ],
+    "events": [],
+    "round": 4,
+    "rounds": 4,
+    "mode": "tag",
+    "turnTicks": 108,
+    "turn": 3,
+    "turns": 2,
+    "marks": [
+      {
+        "i": 0,
+        "x": 1032,
+        "y": 209,
+        "c": "bone",
+        "near": 236,
+        "close": 528,
+        "goal": false
+      },
+      {
+        "i": 1,
+        "x": 584,
+        "y": 188,
+        "c": "amber",
+        "near": 544,
+        "close": 0,
+        "goal": false
+      },
+      {
+        "i": 2,
+        "x": 481,
+        "y": 483,
+        "c": "teal",
+        "near": 574,
+        "close": 0,
+        "goal": false
+      },
+      {
+        "i": 3,
+        "x": 875,
+        "y": 500,
+        "c": "violet",
+        "near": 186,
+        "close": 628,
+        "goal": false
+      }
+    ],
+    "comm": [
+      {
+        "seat": 0,
+        "sym": "A",
+        "since": 216
+      },
+      {
+        "seat": 1,
+        "sym": "B",
+        "since": 216
+      },
+      {
+        "seat": 2,
+        "sym": "C",
+        "since": 216
+      },
+      {
+        "seat": 3,
+        "sym": "D",
+        "since": 216
+      }
+    ],
+    "roles": [
+      "pursuer",
+      "pursuer",
+      "pursuer",
+      "evader"
+    ],
+    "roundScores": [
+      [
+        827,
+        928,
+        473,
+        58
+      ],
+      [
+        827,
+        928,
+        525,
+        0
+      ],
+      [
+        827,
+        71,
+        473,
+        0
+      ],
+      [
+        827,
+        928,
+        500,
+        970
+      ]
+    ],
+    "livePermille": [
+      58,
+      0,
+      0,
+      970
+    ],
+    "episodePermille": [
+      571,
+      570,
+      342,
+      806
+    ],
+    "tag": {
+      "contact": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "ticks": 7
+    },
+    "bumps": [
+      11,
+      6,
+      0,
+      5
+    ],
+    "directives": [
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 1,
+        "seat": 0,
+        "alias": "RED-alpha",
+        "role": "pursuer",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "RED-alpha",
+            "intent": "shadow",
+            "target": [
+              986,
+              127
+            ],
+            "symbol": "A",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 1,
+        "seat": 1,
+        "alias": "BLUE-alpha",
+        "role": "pursuer",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "BLUE-alpha",
+            "intent": "shadow",
+            "target": [
+              986,
+              127
+            ],
+            "symbol": "B",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 1,
+        "seat": 2,
+        "alias": "GREEN-alpha",
+        "role": "pursuer",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "GREEN-alpha",
+            "intent": "shadow",
+            "target": [
+              986,
+              127
+            ],
+            "symbol": "C",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 1,
+        "seat": 3,
+        "alias": "YELLOW-alpha",
+        "role": "evader",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "YELLOW-alpha",
+            "intent": "evade",
+            "target": [
+              986,
+              127
+            ],
+            "symbol": "D",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 2,
+        "seat": 0,
+        "alias": "RED-alpha",
+        "role": "pursuer",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "RED-alpha",
+            "intent": "shadow",
+            "target": [
+              1141,
+              473
+            ],
+            "symbol": "A",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 2,
+        "seat": 1,
+        "alias": "BLUE-alpha",
+        "role": "pursuer",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "BLUE-alpha",
+            "intent": "shadow",
+            "target": [
+              1141,
+              473
+            ],
+            "symbol": "B",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 2,
+        "seat": 2,
+        "alias": "GREEN-alpha",
+        "role": "pursuer",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "GREEN-alpha",
+            "intent": "shadow",
+            "target": [
+              1141,
+              473
+            ],
+            "symbol": "C",
+            "face": null
+          }
+        ]
+      },
+      {
+        "k": "directive",
+        "round": 4,
+        "mode": "tag",
+        "turn": 2,
+        "seat": 3,
+        "alias": "YELLOW-alpha",
+        "role": "evader",
+        "source": "scripted",
+        "latency_ms": 0,
+        "note": "hold at teal south flank until the greens commit and then break for the goal in one straight run, never crossing the middle while an eye is close 012345éàü\u0001F680",
+        "cogs": [
+          {
+            "id": "YELLOW-alpha",
+            "intent": "evade",
+            "target": [
+              1141,
+              473
+            ],
+            "symbol": "D",
+            "face": null
+          }
+        ]
+      }
+    ],
+    "over": {
+      "winner": "red",
+      "draw": true,
+      "timeLimit": true,
+      "teams": {
+        "red": {
+          "lives": 4,
+          "prog": 0
+        },
+        "blue": {
+          "lives": 4,
+          "prog": 0
+        },
+        "green": {
+          "lives": 4,
+          "prog": 0
+        },
+        "yellow": {
+          "lives": 4,
+          "prog": 0
+        }
+      },
+      "redLives": 4,
+      "blueLives": 4,
+      "redProg": 0,
+      "blueProg": 0,
+      "endRule": "full_time",
+      "reason": "complete",
+      "round": 4,
+      "rounds": 4,
+      "mode": "tag",
+      "roundsPlayed": 4,
+      "cards": [
+        {
+          "mode": "spread",
+          "permille": [
+            827,
+            827,
+            827,
+            827
+          ],
+          "roles": [
+            "cooperator",
+            "cooperator",
+            "cooperator",
+            "cooperator"
+          ],
+          "cover": 82,
+          "tagTicks": 0,
+          "goalHits": 0,
+          "endRule": "full_time"
+        },
+        {
+          "mode": "deceive",
+          "permille": [
+            928,
+            928,
+            71,
+            928
+          ],
+          "roles": [
+            "good",
+            "good",
+            "adversary",
+            "good"
+          ],
+          "cover": 0,
+          "tagTicks": 0,
+          "goalHits": 1,
+          "endRule": "full_time"
+        },
+        {
+          "mode": "crypto",
+          "permille": [
+            473,
+            525,
+            473,
+            500
+          ],
+          "roles": [
+            "speaker",
+            "eavesdropper",
+            "listener",
+            "eavesdropper"
+          ],
+          "cover": 0,
+          "tagTicks": 0,
+          "goalHits": 0,
+          "endRule": "full_time"
+        },
+        {
+          "mode": "tag",
+          "permille": [
+            58,
+            0,
+            0,
+            970
+          ],
+          "roles": [
+            "pursuer",
+            "pursuer",
+            "pursuer",
+            "evader"
+          ],
+          "cover": 0,
+          "tagTicks": 7,
+          "goalHits": 0,
+          "endRule": "full_time"
+        }
+      ],
+      "mean": [
+        571,
+        570,
+        342,
+        806
+      ],
+      "bumps": [
+        11,
+        6,
+        0,
+        5
+      ]
+    },
+    "beats": [
+      {
+        "t": 240,
+        "k": "roundover",
+        "round": 1,
+        "mode": "spread",
+        "permille": [
+          827,
+          827,
+          827,
+          827
+        ]
+      },
+      {
+        "t": 265,
+        "k": "roundstart",
+        "round": 2,
+        "rounds": 4,
+        "mode": "deceive",
+        "roles": [
+          "good",
+          "good",
+          "adversary",
+          "good"
+        ]
+      },
+      {
+        "t": 265,
+        "k": "firstword",
+        "by": 0,
+        "alias": "RED-alpha",
+        "colour": "red",
+        "symbol": "A",
+        "round": 2
+      },
+      {
+        "t": 312,
+        "k": "onpoint",
+        "who": 1,
+        "alias": "BLUE-alpha",
+        "colour": "blue",
+        "mark": 3,
+        "markColour": "violet"
+      },
+      {
+        "t": 504,
+        "k": "roundover",
+        "round": 2,
+        "mode": "deceive",
+        "permille": [
+          928,
+          928,
+          71,
+          928
+        ]
+      },
+      {
+        "t": 529,
+        "k": "roundstart",
+        "round": 3,
+        "rounds": 4,
+        "mode": "crypto",
+        "roles": [
+          "speaker",
+          "eavesdropper",
+          "listener",
+          "eavesdropper"
+        ]
+      },
+      {
+        "t": 768,
+        "k": "roundover",
+        "round": 3,
+        "mode": "crypto",
+        "permille": [
+          473,
+          525,
+          473,
+          500
+        ]
+      },
+      {
+        "t": 793,
+        "k": "roundstart",
+        "round": 4,
+        "rounds": 4,
+        "mode": "tag",
+        "roles": [
+          "pursuer",
+          "pursuer",
+          "pursuer",
+          "evader"
+        ]
+      },
+      {
+        "t": 853,
+        "k": "tag",
+        "by": 0,
+        "alias": "RED-alpha",
+        "colour": "red",
+        "seconds": 0,
+        "tick": 853
+      },
+      {
+        "t": 1032,
+        "k": "roundover",
+        "round": 4,
+        "mode": "tag",
+        "permille": [
+          58,
+          0,
+          0,
+          970
+        ]
+      }
+    ]
+  }
+}

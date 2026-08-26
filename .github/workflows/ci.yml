@@ -340,15 +340,27 @@ jobs:
         # docker_smoke.sh runs with NO ANTHROPIC_API_KEY, so every seat plays
         # the scripted baseline and a scripted seat emits no note -- every
         # replay CI produces carries ZERO LLM text, and nothing that plays a
-        # replay can draw the feed or the symbol bubbles. The fixture loads the
-        # real renderer with a full-cap 160-rune note on every seat, a
-        # non-silent symbol on all four particles and the crypto panel
-        # populated, at three board widths (the cogchemists 2026-08-24 rule).
+        # replay can draw the feed or the symbol bubbles. The fixture boots the
+        # REAL viewer page from THIS bundle (dist/static-replay-viewer/
+        # index.html, chrome_common.js and all, with only the wasm shell
+        # stubbed) in three iframes and feeds it
+        # tools/ci/renderer_fixture_frame.json -- a frame written by
+        # tools/gen_fixture_frame.nim from broadcast.buildStateJson, carrying a
+        # full-cap 160-rune note on every seat, a non-silent symbol on all four
+        # particles, the crypto panel populated and one feed row of every kind
+        # at once. Both files go next to the bundle so the fixture's fetches
+        # resolve (the cogchemists 2026-08-24 rule).
         run: |
           set -euo pipefail
           test -s tools/ci/renderer_fixture.html || {
             echo "::error::tools/ci/renderer_fixture.html is missing"; exit 1; }
+          test -s tools/ci/renderer_fixture_frame.json || {
+            echo "::error::tools/ci/renderer_fixture_frame.json is missing;"
+            echo "::error::regenerate it with tools/gen_fixture_frame.nim"
+            exit 1; }
           cp tools/ci/renderer_fixture.html dist/static-replay-viewer/renderer_fixture.html
+          cp tools/ci/renderer_fixture_frame.json \
+            dist/static-replay-viewer/renderer_fixture_frame.json
           ( cd dist/static-replay-viewer && python3 -m http.server 8731 \
               >/tmp/fixture-server.log 2>&1 & echo $! > /tmp/fixture-server.pid )
           trap 'kill "$(cat /tmp/fixture-server.pid)" 2>/dev/null || true' EXIT
