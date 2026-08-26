@@ -62,6 +62,43 @@ suite "end conditions":
     check results["modes"].len == 4
     check results["roundTicks"].len == 4
 
+  test "results.bumps is the EPISODE's bump ticks, not the last round's":
+    ## Every other seat-indexed number in the document is an episode aggregate
+    ## (`scores`, `llmTurns`, `fallbackTurns`) or an explicit per-round array
+    ## (`roundScores`, `roles`). `sim.bumps` is the live per-round counter
+    ## `beginRound` zeroes, so reporting it named round 4 alone -- which in the
+    ## default variant is `tag`, the one mode where bumps do not score.
+    var config = fixtureConfig()
+    var sim = seatedSim(config)
+    var inputs = newSeq[InputState](sim.players.len)
+    var played = 0
+    var expected: array[4, int]
+    while played < 4:
+      ## Park two particles on top of each other so bumps really accrue, in
+      ## every round.
+      sim.players[1].x = sim.players[0].x
+      sim.players[1].y = sim.players[0].y
+      let before = sim.phase
+      sim.step(inputs, inputs)
+      if before != GameOver and sim.phase == GameOver:
+        ## The counters are still the round's own here: bankRound has run and
+        ## beginRound has not.
+        for seat in 0 ..< 4:
+          expected[seat] += sim.bumps[seat]
+        inc played
+        if played >= 4:
+          break
+        sim.roundIndex = played
+        sim.reseat(config)
+    sim.seatNames = ["a", "b", "c", "d"]
+    let results = parseJson(sim.particleResultsJson())
+    check expected[0] > 0
+    for seat in 0 ..< 4:
+      check sim.episodeBumps[seat] == expected[seat]
+      check results["bumps"][seat].getInt() == expected[seat]
+    ## And it really is more than the last round's counter.
+    check results["bumps"][0].getInt() > sim.bumps[0]
+
   test "roundLog records exactly one entry per round played":
     for rounds in 1 .. 4:
       var sim = runRounds(fixtureConfig(), rounds)

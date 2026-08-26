@@ -711,7 +711,12 @@ proc particleResultsJson*(sim: SimServer): string =
       seatRounds.add(%0.0)
     roles.add(seatRoles)
     roundScores.add(seatRounds)
-    bumps.add(%sim.bumps[min(seat, 3)])
+    ## The EPISODE's bumps, like every other seat-indexed number in this
+    ## document (`scores`, `llmTurns`, `fallbackTurns` are episode aggregates;
+    ## `roundScores` and `roles` are explicit per-round arrays). `sim.bumps` is
+    ## the live per-round counter and reported round 4's alone -- which in the
+    ## default variant is `tag`, the one mode where bumps do not score.
+    bumps.add(%sim.episodeBumps[min(seat, 3)])
     llmTurns.add(%(if seat < sim.llmTurns.len: sim.llmTurns[seat] else: 0))
     fallbackTurns.add(
       %(if seat < sim.fallbackTurns.len: sim.fallbackTurns[seat] else: 0))

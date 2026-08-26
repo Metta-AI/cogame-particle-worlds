@@ -197,6 +197,10 @@ proc bankRound*(sim: var SimServer, ticks: int, endRule: string) =
     entry.roles[seat] = sim.roleIndex[seat]
     entry.permille[seat] =
       if seat < sim.players.len: sim.roundPermille(seat, ticks) else: 0
+    ## The episode total, banked with the round: `bumps` itself is zeroed by
+    ## the next `beginRound`, so this is the only place the per-round counters
+    ## can be added up.
+    sim.episodeBumps[seat] += sim.bumps[seat]
   sim.roundLog.add(entry)
   inc sim.roundsPlayed
 

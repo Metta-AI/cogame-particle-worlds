@@ -1242,7 +1242,10 @@ proc buildStateJson*(
       var overBumps = newJArray()
       for seat in 0 ..< min(4, sim.players.len):
         means.add(%sim.episodePermille(seat))
-        overBumps.add(%sim.bumps[seat])
+        ## The ENDCARD is an episode summary, so its bump column is the
+        ## episode's, the same number `results.bumps` reports. The live frame's
+        ## `bumps` above stays the per-round counter.
+        overBumps.add(%sim.episodeBumps[seat])
       state["over"]["mean"] = means
       state["over"]["bumps"] = overBumps
     if sim.config.hill:

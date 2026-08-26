@@ -1931,6 +1931,16 @@ type
     commTurn*: array[4, int]       ## per seat: the turn its symbol was set.
     roundLog*: seq[RoundLogEntry]  ## every round banked so far. HASHED.
     roundsPlayed*: int             ## how many rounds counted toward the mean.
+    episodeBumps*: array[4, int]   ## per seat: bump ticks summed over every
+                               ## BANKED round -- what `results.bumps` and the
+                               ## endcard column report, next to the other
+                               ## episode aggregates. `bumps` above is the
+                               ## live per-round counter `beginRound` zeroes,
+                               ## which is what the spectator frame shows.
+                               ## NOT hashed: it is derived from `bumps`,
+                               ## which is, and `bankRound` (inside the step)
+                               ## is its only writer, so the replayed sim
+                               ## re-derives it anyway.
 
 
 # Team endzone display colors (shared by the map bake and the paint FX).

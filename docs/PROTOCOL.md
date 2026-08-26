@@ -233,3 +233,8 @@ Written to `COGAME_RESULTS_URI`, and equal to the manifest's `results_schema` ke
 schema is `additionalProperties: false`. Exactly 22 keys; see the manifest and
 `src/mpe/roster.nim`'s `particleResultsJson`. The ten seat-indexed arrays have exactly
 `num_agents` = 4 entries; the six round-indexed arrays carry one entry per round played (1..4).
+
+`results.bumps` is the seat's bump ticks summed over every **banked round** — an episode
+aggregate, like `scores`, `llmTurns` and `fallbackTurns`, and the number the endcard's bump column
+shows. The spectator frame's own `bumps` is the **live per-round** counter (`beginRound` zeroes it),
+which is the one the scoring formula debits in `spread`.
