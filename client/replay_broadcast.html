@@ -702,135 +702,6 @@ html, body {
   image-rendering: pixelated;
 }
 
-/* ---------- 4b. VIEW CONTROLS (zoom + minimap) ----------
-   One group, top-right, under the reserved scorebug band: the minimap sits
-   directly over the control that summoned it, so "where am I" and "how far in
-   am I" read as a single instrument instead of two scattered widgets.
-   The board is NOT scroll-zoomed — a trackpad two-finger scroll belongs to the
-   page — so these controls are the primary way in, not a fallback, and they are
-   always present. The minimap only appears once there is something off-screen
-   to locate (zoom > 1); at fit it would just be the board again, smaller. */
-#viewpanel {
-  position: absolute;
-  top: calc(var(--topband, 0px) + 10 * var(--u));
-  right: calc(12 * var(--u));
-  z-index: 11;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: calc(5 * var(--u));
-  font-family: var(--pixfont);
-  /* Minimap and zoom bar share ONE width so the pair reads as a single stacked
-     instrument rather than two overlays that happen to be near each other.
-     The px floor is a TOUCH floor: chrome otherwise scales with the embed, and
-     a 300px-wide Observatory card would shrink the buttons below a fingertip. */
-  --viewpanel-w: max(calc(178 * var(--u)), 132px);
-}
-
-/* Board minimap. Aspect + display come from the STREAMED board's real w/h
-   (syncMinimapShape), because a four-team board is square and a fixed 1.874:1
-   inset would squash it. See-through so it reads as an overlay on play. */
-#minimap {
-  position: relative;
-  width: var(--viewpanel-w);
-  aspect-ratio: 1235 / 659;
-  background: rgba(8, 5, 3, 0.5);
-  box-shadow: 0 0 0 1px rgba(232, 163, 61, 0.3);
-  overflow: hidden;
-  cursor: crosshair;
-  display: none;
-}
-#minimap.on { display: block; }
-#minimap canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-/* The label rides INSIDE the frame rather than adding a header row above it —
-   one element, not two stacked boxes. */
-#minimap .mm-cap {
-  position: absolute;
-  left: calc(4 * var(--u));
-  bottom: calc(2 * var(--u));
-  font-size: calc(7 * var(--u));
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--paper-dim);
-  text-shadow: 0 1px 2px rgba(8, 5, 3, 0.9);
-  pointer-events: none;
-}
-
-#zoombar {
-  display: flex;
-  align-items: center;
-  gap: calc(5 * var(--u));
-  width: var(--viewpanel-w);
-  padding: calc(3 * var(--u)) calc(5 * var(--u));
-  /* Opaque enough that the buttons keep their contrast over pale concrete —
-     a control you have to hunt for on a bright floor is not a control. */
-  background: rgba(12, 9, 6, 0.82);
-  box-shadow: 0 0 0 1px rgba(232, 163, 61, 0.22);
-}
-.zbtn {
-  font-family: var(--pixfont);
-  font-size: calc(14 * var(--u));
-  line-height: 1;
-  color: var(--paper);
-  background: rgba(242, 232, 216, 0.08);
-  border: none;
-  flex: none;
-  width: max(calc(20 * var(--u)), 22px);
-  height: max(calc(18 * var(--u)), 20px);
-  cursor: pointer;
-  padding: 0;
-}
-.zbtn:hover { background: rgba(242, 232, 216, 0.22); }
-.zbtn:disabled { opacity: 0.3; cursor: default; background: rgba(242, 232, 216, 0.05); }
-/* Zoom is geometric (1x..12x); the slider's travel is the LOG of it, so equal
-   thumb movement is equal perceived zoom rather than a dead left half. */
-#zoom-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  flex: 1 1 auto;
-  width: auto;
-  min-width: 0;
-  margin: 0;
-  height: calc(2 * var(--u));
-  background: rgba(242, 232, 216, 0.22);
-  cursor: pointer;
-}
-#zoom-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: calc(9 * var(--u));
-  height: calc(13 * var(--u));
-  background: var(--amber);
-  cursor: grab;
-}
-#zoom-slider::-moz-range-thumb {
-  width: calc(9 * var(--u));
-  height: calc(13 * var(--u));
-  border: none;
-  border-radius: 0;
-  background: var(--amber);
-  cursor: grab;
-}
-#zoom-slider:focus-visible { outline: 1px solid var(--amber); outline-offset: calc(3 * var(--u)); }
-/* Never a bare number: the readout carries its unit, and "FIT" names the state
-   the board opens in instead of showing a meaningless 1.0x. */
-#zoom-read {
-  font-size: max(calc(9 * var(--u)), 9px);
-  letter-spacing: 0.06em;
-  color: var(--paper-dim);
-  flex: none;
-  width: max(calc(26 * var(--u)), 26px);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-#zoom-read.zoomed { color: var(--amber); }
-
 /* ---------- 5. TRANSPORT ---------- */
 #transport {
   position: absolute;
@@ -914,24 +785,6 @@ html, body {
   transform: translateX(-1px);
   z-index: 2;
 }
-/* kill ticks are short and colored by the KILLER's team (a red tick = red
-   scored a kill); team-kills and unattributable pileups stay neutral. */
-.beat-marker.kill { background: var(--tc, var(--paper-dim)); height: calc(6 * var(--u)); }
-/* flag beats are colored by the FLAG's team, matching the banners ("RED
-   HEART TAKEN"): steal = full tick with a flag head, return = same tick
-   dimmed (the heart snapped home), capture = the chunky match point in the
-   CAPTURING team's color. */
-.beat-marker.steal { background: var(--tc, var(--amber)); }
-.beat-marker.steal::after {
-  content: '';
-  position: absolute;
-  left: 0; top: 0;
-  width: calc(5 * var(--u));
-  height: calc(3 * var(--u));
-  background: inherit;
-}
-.beat-marker.return { background: var(--tc, var(--paper-dim)); opacity: 0.45; }
-.beat-marker.capture { background: var(--tc, var(--amber)); width: calc(3 * var(--u)); height: calc(12 * var(--u)); }
 /* winner cap: a flat block just past the track's right end, colored by the
    verdict (split for a draw), so the scrubber itself says how this ends. */
 .scrub-win {
@@ -1218,25 +1071,6 @@ html, body {
 }
 #endcard .ec-badge.bs::before { width: calc(10.5 * var(--u)); background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABUAAAAcCAYAAACOGPReAAAFD0lEQVR42qWWX2wc1RXGf2dmZ2d3/TfO2qzjOEkdOxGhEJGIFhIodVqME2goBAfVRFUFUlS1D62qVv2jisXiCb9VraiIxEOlthKOKrV9AARSTR8qEAIKliCghpAG0drGya4d7+7s3N39+rBZY7VNGujVHc2VRufTOd/5znfH+JRLYAbSHffeT6Z8N/uvu56lxDGbnj7l8X8s5fMe9UYNmUddORYW9gDYpwITZob02NggFg7wUqLC+cWbKV/8tc3NlbyrKVMTE74uJbD2fnxfB6IHnwwHqwv28l+etLm5EsD/BDWQnTxZN1AL0AyxEvbgeyN4Jj7yVpTHa31PXL5EmZlJE4dypL1jtHU+Zb/8bUFgyo/1EHp9JJJFSvFrNvVcudW4K2f66KNNvtusA8e1/L10nw4d2moghr0aXjCIGhds6rkV5fFagJ+oURo/ciPEN9DQKjn7G/1Lvj3+0l/XZ3jVoAIjnzdef30rVYZR6jT9lZ9y4NZnef/Mi9B/AaawKRqfCNRAOjI+zUW/Sh9vUV9N8/Vjt/DMC/P285lH/j3mit3XxIRvID0w/iVqFoK3CrXvc8/YD7lp+zKL1T/p8OEf6NjBb68Nw5VA1/T44Hgnjpup+RU2RHsZ7G1n3x6PSu139vQfXiT038X8wvrYxHoJNTVoTdLzebOpqbqOju/EedtI+kt4tW184fP9pMJp6zvwsjSbMBv94zoJNi7L6RqPk3cNUeY41WCZztX9bLtmJw9N+OzYvxuyq2Ctrf/gVJIvaXukaIfOnUsDpttvT1Cr30VVISz3sbE9xzeODNPd8YRZ78VmUQgpKWm4UqkMS/IBEpcO28ANhM6DbLYKnCOXGaIY76C3d5lsx2GGNneT7TlDsfC0lP+4F2V6yZBLpVItGs8mgF0OlwFqQRDA2bPzBpJjjIgVfvTQKBszwySVprTyiI3c+4E0mwDqAGT4J7gBCDznXE8QBGnPOdeFI8RRda7sopGRAX153yZkuzDVeeH5LnLb03QN/J5i8RfNho7WzUySPGCXc3hAFASEzrnORBwHp9uCuG/+1Kn3crWa9MYrQ2Q6HyayC/R5tzHQ00vhLDSSP7EbHixIk00vLZU2Ab04OoMgeBOI4zjY4RyLifZ2m9fs7FL/6GgNQPeMPUA5WSUo55g8+FnGvpitz5/P+++8e0avvhrEcXytpLRzTgEsEXAKqJtZXdJbYWj1psAn8O0kdX3t7lv4KLqfRhW+c98kd96W48N/fO/80Fee2kjUR9WShKErU65kyMybWW1VyrXBAPC2mVUkmWlmxrejR+sandyKv/gtBjK7OXrHXu68NcuHhcfYMjpNFGWdr61BkK4TUyTJe8sspzIuMxQQBGXHB5kMC5cybk6RDuz9HJb6JuM37eHhr+7GD//Mavk3bDrwK4gGIRUTx72YpQmCxUqlEqfTaQE+sAqsmFl1zaX0xI8nGew/QXZDG1typ+lof4fG0Hfp6jsDJAFXonRNG8nPAH6VxlJIeBpoNIePLUDFzBZat4Xp/ed/Rld7mnT7HKnrn+TECTh+fAuustlBHRI0gsaFMLYkyaQAhyNDQMo5Z1JQSiZ5ozX3V7iCFRSLxQ2SuiR1lMvlQUmDhUKhO4q0U1K7pK4o0s5CodD9XwBmfM3OJqQZX8Kkj01GUqokba6qeqOkNECkaCSKol2FQqG75WxX+bMgu/Rsqkq7JYXr7bFS0VBVuu5y8f8CyPZwOPj4umUAAAAASUVORK5CYII="); }
 #endcard .ec-row .n.clstr { color: var(--amber); }
-#endcard .ec-heart {
-  display: inline-block;
-  height: calc(14 * var(--u));
-  vertical-align: middle;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  image-rendering: pixelated;
-}
-#endcard .ec-heart.red { width: calc(14.5 * var(--u)); background-image: url("data:image/png;base64,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"); }
-#endcard .ec-heart.blue { width: calc(15 * var(--u)); background-image: url("data:image/png;base64,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"); }
-#endcard .ec-heart.green { width: calc(14.5 * var(--u)); background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB0AAAAcCAYAAACdz7SqAAAHwklEQVR42pWWW4idVxXHf3t/l/Od68w5c0nOJGnGScq0Q9NUkWpb2zSlsZqWVBCtYBG8QQW1FR9EpFR8EAXF60N9KqhQSLQIBRunlzT0hpYWkziTe2bOTOZy5sycM+f6XffePkxaa2wTs/bDhs3i/1tr7c1eS/A+VvpUqRCI1OeNShokcj7txqfqh+strmJDe4ZynYx1QxImOyWmP1TyjxytdS73E5cfpO8dGLHt1OHN+8Z2mWGLZNGnN9cy3UpzVmv9ujTmp93nVk684+/eU5qwpPUDK+PcWh4pj12/ZVTekR3loH6LMy+fOua3O/dytLP6wdA7B8ulgcyRRx7/1rg/ojjaehtnRw5hgIZi8bUZGgdna2Gtd0f0wupZd+/AeHpL7rXy1yYGhibK5PN5EqP47LFxnhx+lfSc4cSvXptSfriv97fVpf+BZu4bLDte+shjT3x3vH0zeLGkbzrimV1ThL2A2vQSVtom3/Go/ObY2Xg92G8X3MM3/XzvDl22ac6uEQ2CSEuyp4GRFI62GDjr8sZPJqdFhz2do0urABKAW0sFreRzj33vsXGzy6MnA2puh8Ftw8RLPuv1dUzJQkiBn4nZ9vCN1wtPHht99MM74hEBlqB/bJChqA/nfEJuWz+u7aAcjT8uuf3RfROJlUyyZygHYLEH28vmn/nGo498wtkzwJrVwsEmRnHWqeJEklKUp6t84pTBKI3KQt+uYYeP5XAdFxMo9EJINvIITIRwJWk3jWPZBDKi2RcwXBwqr08t3pQ83DtopcYGv3rng3u+85GHbqdiVXGFTWRiiA131bfj9KcplQa5rbCbfDfFWrRO6CqsPgeyknzV4a54NxND19MqhmRKWWrVGtKzsC0LhSbQEdntfZh6PB4fieelMXpoZWuP0aU8dwcTRCZGKNhdH8bOeexkK7fE21hy6gxt28QDN9zLRGYML3Y44N/BQyOfpjesmHWrZK00BZFl++h2GtU6oYpRRtNv52mcXiEcMJiUzNlCinrKcflx8RA3XSwTlG2G4jyFdJa6E/JtcYATZoZ/MENTdImshM3XjTBsNtM0ITXrHD0TEBDiGgdPuqChvKXMwsxFisMDLB6fQdiSNB7rkWnZBha6yy2cVIY3d8xjzymS4ihHC4aPhzuZM1X+YL1MBx8lFAERHikSEkIZ0dY9EqGQSBKhMMZgMBhPki8VmP3nOWTGpk9loR1ASszZRukZf6lNTm4nSroYy+DHASUjqFDlR/YhtDQkQtEjICZBY0BAW3eJSRAIbEAgaNJBoUCCFBJ3MI0yCi9Msb6wDDEzMk4PnG0vNCOMoVdpYpc9QhWRUx4PhrtAsJGhCAlMSEhEiy6rZh2fEI1BY0hQhMT4IiIUCYlRRH7I+HU78VYktmMTrPtBmKzMSQ6fCzszjXO1U0sIKem1eyzIGrqd8Nv8KwQyokeIMppYKDQGn4BYJChpUEKh0SRCEYmYmA1gt9Em52bJuznGyzuJmgG9avs0R0kkgIG3o1NtrD6HJIyRnkWlcZGCyWAwSCHRl1bARiaRSFBsBKHQxCIhNDEGgwDUWkS2mCM0MVuHRzDVGKM5/u6PJALzbPeVFeSKwlIWcTdiSl2gGOfQxgAQkRCTbASBwEIihEALswEkRqMRGmQEIiXRwqBbMSdnz1A/voQlxMGNHwlIKr1pk7fuyY4Xt/tLbVSU4GzNEi52MSUbBLToojEIBLyzC9Bio7TaGIpmozn4Cx28vjTt+QaNpTrtpMvaoQsv+S/UHn8XCmBt8f4eLfW+XNq31fEbXfxal0bcIlcuoKRGC40RIBH/AV4qrZc4PLF2PxetdVztMjt9AX+1QzqTRox6LP1iqqPq8QOq0qv/F1TN+TXRb7V0pPdnJoobjyOICdsBucECQm6AYhQIMBgik6DQ/LBxgEFZ5LhdZfrYFI2gSXHzAFbJZfH3J/Hfqn8zfHn1hXcTfG87VRX/TeWxO7U5c4PT7+HiYIZtWpU6zoCHtszGPaFJLj0iiWCWNdYtw6vH36DSXcRRNtlcjrXpZRp/rvwpfL72/fdyrMsnB1V2JuML3QPejX1DlmejLUPsR3Q6HUxe4jkpjAHrUiseVv3c7d/C02eeZb6+gCUtpBGgDcu/npoKo/gzXAiCK44rAKn7No0Ky7zS/8XRrYy4GAuUZxBGUBgpUtxUIoXLgC4wcjHLX5aPEOqIbOLhWA5xI6D+1PmK9sWdweTi/OX61vtB1fnuemo093x4uvO53K6BrLI0uhVD0cJ0FEkrwi64NCtrvB4eR7oWdlWTLmSxkKz87tSCaiZ7wxers++nL6403aVuL+yQfenJoa+Pj8X9hiSIkcMuhXQeFSToPonqxaiKT2FTP1EzYPGX/zpjenp/eKR2/oN0rStB1XzYcMvpQ92TjU8WxkqbrKyNDhVePo2nXZIkQVdDUtIlqvZYfvLkCStmr//iysUr6VpXm2XjuV4nva1wsPV29aOp4cyHMoM5pGNjIo2OFaarSS50qR08Pxn0wvvjl9bWrqZ5VShANNP2k9KNT8dzcxm1HNymHSPSfRk6M+t0J5d0+82VnwX5la/w19D/f/QE12iZuwfvNwXnKe/mviF/ulmTzeRLvRdrh69F45qhAJn9Q5tNIL4AySH/pfrCtQr8G2jsFPsDdXf6AAAAAElFTkSuQmCC"); }
-#endcard .ec-heart.yellow { width: calc(14.5 * var(--u)); background-image: url("data:image/png;base64,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"); }
-/* a team without baked heart art gets a tinted glyph instead (fallback) */
-#endcard .ec-heart-glyph {
-  color: var(--tc, var(--amber));
-  font-size: calc(12 * var(--u));
-  line-height: 1;
-}
 /* loop countdown — present only while the server holds the end segment */
 #endcard .ec-replay {
   font-family: var(--finefont);
@@ -1449,14 +1283,6 @@ body[data-embed] #grain,
 body[data-embed] #status { display: none !important; }
 body[data-embed] #board { top: 0; height: 100%; }
 
-/* Opt-OUT of the #viewpanel overlay (zoom bar + minimap) by param only:
-   ?viewpanel=0 sets body[data-noviewpanel]. Defaults are unchanged everywhere
-   — the League Replayer shell loads the board with ?embed=1 and KEEPS zoom +
-   minimap (that's why #271 blanket-hiding the panel in all embeds was reverted
-   in #272). Only surfaces that explicitly ask — billboards (Lobby hero) and
-   thumbnail capture — append &viewpanel=0 to drop the panel. Independent of
-   embed: the two params don't touch each other. */
-body[data-noviewpanel] #viewpanel { display: none !important; }
 </style>
 </head>
 <body>
@@ -1501,24 +1327,6 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
       </div>
 
       <div class="plates" id="plates-r"></div>
-    </div>
-
-    <!-- View controls: zoom the board with buttons/slider/keys/pinch (never a
-         plain scroll — that belongs to the page), and once zoomed, a minimap
-         with a white view box says which part of the board you are holding.
-         Click or drag the minimap to jump the view there. -->
-    <div id="viewpanel">
-      <div id="minimap" title="Click or drag to move the view">
-        <canvas id="minimap-canvas"></canvas>
-        <span class="mm-cap">View</span>
-      </div>
-      <div id="zoombar" role="group" aria-label="Board zoom">
-        <button class="zbtn" id="zoom-out" title="Zoom out (x)" aria-label="Zoom out">&minus;</button>
-        <input id="zoom-slider" type="range" min="0" max="1000" step="1" value="0"
-               aria-label="Board zoom" aria-valuetext="Fitted">
-        <button class="zbtn" id="zoom-in" title="Zoom in (z)" aria-label="Zoom in">+</button>
-        <span id="zoom-read" aria-live="off">FIT</span>
-      </div>
     </div>
 
     <div id="mmwarn">Replay hash mismatch — showing recorded inputs</div>
@@ -1873,16 +1681,6 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
   try { EMBED = new URLSearchParams(location.search).get('embed') === '1'; } catch (e) {}
   if (EMBED) document.body.setAttribute('data-embed', '1');
 
-  // ?viewpanel=0 hides the #viewpanel overlay (zoom bar + minimap). This is an
-  // explicit opt-OUT only — the default (param absent) is unchanged for every
-  // existing embed, so the League Replayer still shows zoom + minimap. See the
-  // #271/#272 lesson: hiding the panel for ALL embeds broke the Replayer shell.
-  // Billboards (Lobby hero) and thumbnail capture append &viewpanel=0.
-  try {
-    if (new URLSearchParams(location.search).get('viewpanel') === '0')
-      document.body.setAttribute('data-noviewpanel', '1');
-  } catch (e) {}
-
   // Tick deep-link (?t=<tick>): seek there on load, paused, via the same s:
   // command the scrubber uses (the sim clamps out-of-range ticks). One-shot,
   // fired on the first ingested frame so the replay runtime is ready.
@@ -1957,8 +1755,44 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
   var lastState = null;
   // PAINTBALL mode: latched on the first frame that carries a squad-game
   // field (`regime` only rides squad frames). Classic frames never set it.
-  var PB_MODE = false;
-  var PB_CTX = null;             // filled at the end of this IIFE (hoisted)
+  var MPE_MODE = false;
+  var MPE_CTX = null;            // filled at the end of this IIFE (hoisted)
+  // Seat <-> colour is a fixed 1:1 map here: teams 4, cogsPerTeam 1, dealt in
+  // enum order, so a plate keyed by colour IS a seat's plate.
+  var MPE_TEAM_ORDER = ['red', 'blue', 'green', 'yellow'];
+  var MPE_SEAT_OF = { red: 0, blue: 1, green: 2, yellow: 3 };
+  // One glyph per role, so a round's cast reads at board scale without labels.
+  var MPE_ROLE_GLYPH = {
+    cooperator: '\u25CB',      // a ring
+    good: '\u25CB',
+    adversary: '\u25C8',       // a mask
+    speaker: '\u266A',         // a horn
+    listener: '\u25D6',        // an ear
+    eavesdropper: '\u25C9',    // an eye
+    evader: '\u25B2',          // a runner
+    pursuer: '\u25BC'          // a hook
+  };
+  // The eight fixed symbol hues, matching the server's SymbolHues so "F" is
+  // the same colour in the bubble, in the plate and in the radio strip.
+  var MPE_SYM_HUE = {
+    A: '#e8604a', B: '#e8a33d', C: '#d6d25a', D: '#78c868',
+    E: '#48beb6', F: '#5a98e2', G: '#9e74dc', H: '#e282be'
+  };
+  var MPE_MARK_HUE = {
+    amber: '#e8a33d', teal: '#40b0a8', violet: '#966cd6', bone: '#e2dbc6'
+  };
+  function mpeCardHeadline(c) {
+    if (!c) return '';
+    switch (c.mode) {
+      case 'spread': return (c.cover || 0) + '% covered';
+      case 'deceive':
+        return (c.goalHits || 0) > 0 ? 'the goal was held' : 'the mask lost';
+      case 'crypto':
+        return (c.goalHits || 0) > 0 ? 'the key held' : 'nobody arrived';
+      case 'tag': return (c.tagTicks || 0) + ' ticks of contact';
+    }
+    return '';
+  }
   // A scrubber click that arrives before the first chrome frame used to be
   // DROPPED: click-to-seek needs [startTick, maxTick] off the frame to map the
   // x-fraction onto a tick, and the handler simply returned when there was no
@@ -2019,7 +1853,7 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
     var s;
     try { s = JSON.parse(txt); } catch (e) { return; }
     lastState = s;
-    if (!PB_MODE && s.regime !== undefined) PB_MODE = true;
+    if (!MPE_MODE && s.mode !== undefined) MPE_MODE = true;
     dismissLockerRoom();  // the board is live — fade the pre-load curtain
 
     if (SEEK_T != null) { send('s:' + SEEK_T); SEEK_T = null; }
@@ -2072,7 +1906,7 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
     else { $('endcard').classList.remove('on'); }
 
     // PAINTBALL additions run last, over the classic chrome's own render.
-    if (PB_MODE && window.PaintballChrome) window.PaintballChrome.frame(s, PB_CTX, jumped);
+    if (MPE_MODE && window.MpeChrome) window.MpeChrome.frame(s, MPE_CTX, jumped);
 
     lastTick = s.t;
   }
@@ -2198,7 +2032,7 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
   function ensureScorebug(teams) {
     // Keyed on team set AND mode: paintball frames arrive after the first
     // classic-built frame, so the plates rebuild once when the mode is known.
-    var key = teams.join(',') + (PB_MODE ? '|pb' : '');
+    var key = teams.join(',') + (MPE_MODE ? '|mpe' : '');
     if (sbTeams === key) return;
     sbTeams = key;
     var sides = [$('plates-l'), $('plates-r')];
@@ -2210,23 +2044,23 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
       var plate = document.createElement('div');
       plate.className = 'plate ' + team + ' ' + (i % 2 === 0 ? 'side-l' : 'side-r');
       plate.setAttribute('data-team', team);
-      if (PB_MODE) {
-        // PAINTBALL: the plate's CONTENTS change (hill time held, live hill
-        // coverage, tag-outs) — the plate, the sides, the squad strip and the
-        // clock column are the classic ones. The heart/flag icon is gone with
-        // the objective it belonged to.
+      if (MPE_MODE) {
+        // PARTICLE WORLDS: one team IS one seat (teams 4, cogsPerTeam 1), so
+        // the plate's CONTENTS change — a role glyph for this round, the
+        // seat's REAL policy name (spectator side), its episode score so far
+        // in the big numeral and its live round permille in the small one.
+        // The plate, the sides and the clock column are the classic ones.
         plate.innerHTML =
-          '<div class="hillchip" id="hill-' + team + '" title="Hill coverage">—</div>' +
+          '<div class="mpe-glyph" id="glyph-' + team + '" title="Role this round">\u00b7</div>' +
           '<div class="team-id">' +
           '<div class="lives-line">' +
           '<span class="team-name plate-name" id="name-' + team + '">' + team.toUpperCase() + '</span>' +
-          '<span class="hcap" id="hcap-' + team + '" style="display:none"></span>' +
-          '<span class="lives-label pb-lbl">Hill</span>' +
-          '<span class="lives-num" id="lives-' + team + '">—</span>' +
+          '<span class="lives-label mpe-lbl" id="role-' + team + '">\u2014</span>' +
+          '<span class="lives-num" id="lives-' + team + '">\u2014</span>' +
           '</div>' +
-          '<div class="pb-sub">' +
-          '<span class="pb-tags pb-lbl" id="tags-' + team + '"></span>' +
-          '<span class="squad" id="squad-' + team + '"></span>' +
+          '<div class="mpe-sub">' +
+          '<span class="mpe-round mpe-lbl" id="rnd-' + team + '"></span>' +
+          '<span class="mpe-sym" id="sym-' + team + '">\u2014</span>' +
           '</div>' +
           '</div>';
         sides[i % 2].appendChild(plate);
@@ -2260,34 +2094,45 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
     teams.forEach(function (team) {
       setName('name-' + team, teamName(s, team, team.toUpperCase()));
       setHandicap('hcap-' + team, s, team);
-      if (PB_MODE) {
+      if (MPE_MODE) {
         var t = tr[team] || {};
-        // PAINTBALL: the big numeral is HILL TIME HELD (M:SS), the chip is
-        // live hill coverage, and the sub-line counts tag-outs. '—' until the
-        // frame actually carries this team's entry.
-        $('lives-' + team).textContent = tr[team] ? fmt(t.held || 0) : '—';
-        var chip = $('hill-' + team);
-        if (chip) {
-          chip.textContent = tr[team] ? (t.cov || 0) + '%' : '—';
-          chip.classList.toggle('own', !!t.own);
-          chip.style.color = teamCol(team) || PAPER;
+        // PARTICLE WORLDS: the big numeral is the seat's EPISODE SCORE so
+        // far, the small one its live round permille, the glyph its role. An em
+        // dash until the frame actually carries this seat's entry.
+        $('lives-' + team).textContent =
+          tr[team] && t.mean != null ? (t.mean / 1000).toFixed(3) : '\u2014';
+        var glyph = $('glyph-' + team);
+        if (glyph) {
+          glyph.textContent = MPE_ROLE_GLYPH[t.role] || '\u00b7';
+          glyph.title = t.role ? String(t.role) : 'Role this round';
+          glyph.style.color = teamCol(team) || PAPER;
         }
-        var tagsEl = $('tags-' + team);
-        if (tagsEl) {
-          tagsEl.textContent = tr[team]
-            ? (t.tags || 0) + ' tags · ' + (t.cogs || 0) + ' up' : '';
+        var roleEl = $('role-' + team);
+        if (roleEl) roleEl.textContent = t.role ? String(t.role) : '\u2014';
+        var rndEl = $('rnd-' + team);
+        if (rndEl) {
+          rndEl.textContent = tr[team] && t.live != null
+            ? (t.live / 1000).toFixed(2) + ' this round' : '';
         }
-        renderSquad($('squad-' + team), s, team, s.pov);
-        // leader pulse when this team leads every rival on banked hill time
-        var bestPbRival = -Infinity;
+        var symEl = $('sym-' + team);
+        if (symEl) {
+          // Silence renders as an em dash, never as an empty cell: saying
+          // nothing is visibly a choice.
+          symEl.textContent = t.sym && t.sym !== '-' ? t.sym : '\u2014';
+          symEl.classList.toggle('said', !!(t.sym && t.sym !== '-'));
+          symEl.style.color = MPE_SYM_HUE[t.sym] || 'var(--paper-dim)';
+        }
+        // leader pulse when this seat leads every rival on the episode mean
+        var bestRivalMean = -Infinity;
         teams.forEach(function (o) {
-          if (o !== team) bestPbRival = Math.max(bestPbRival, (tr[o] && tr[o].held) || 0);
+          if (o !== team)
+            bestRivalMean = Math.max(bestRivalMean, (tr[o] && tr[o].mean) || 0);
         });
-        var pbPlate = document.querySelector('.plate[data-team="' + team + '"]');
-        if (pbPlate) {
-          pbPlate.classList.toggle(
+        var mpePlate = document.querySelector('.plate[data-team="' + team + '"]');
+        if (mpePlate) {
+          mpePlate.classList.toggle(
             'leader',
-            (t.held || 0) - bestPbRival >= 5 && s.ph === 'playing'
+            (t.mean || 0) - bestRivalMean >= 40 && s.ph === 'playing'
           );
         }
         return;
@@ -2682,7 +2527,7 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
       }
     }
 
-    // Paintball comets: drawn AFTER the sprites (paint flies in front of the
+    // Comets: drawn AFTER the sprites (an overlay flies in front of the
     // cogs that fired it) but before the reticle/HUD, which stay on top.
     drawFpvShots(ctx, fp, W, H, horizon, halfFov, PROJ, colW, n, zbuf, projH);
 
@@ -3477,8 +3322,8 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
     // chrome_common's unlabelled div markers. When the block handles a kind
     // it returns true, so the classic switch never doubles it; classic
     // replays never enter this branch at all.
-    if (PB_MODE && window.PaintballChrome &&
-        window.PaintballChrome.event(e, s, PB_CTX)) {
+    if (MPE_MODE && window.MpeChrome &&
+        window.MpeChrome.event(e, s, MPE_CTX)) {
       beatPulse();
       return;
     }
@@ -3723,21 +3568,34 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
     var html = '';
     function rowHtml(p) {
       var mvp = mvpSlot != null && p.s === mvpSlot;
-      if (PB_MODE) {
-        // PAINTBALL: the row is a COG (its anonymous alias), and the columns
-        // are tags dealt, tags taken and what its squad painted. Kills and
-        // captures are not the score here and never appear as one.
-        var pbMarks = endcardBadge('bs', p.tk, 'Friendly fire — tagged a teammate');
-        var tr = (s.teams || {})[p.team] || {};
-        return '<div class="ec-row' + (mvp ? ' mvp' : '') + '">' +
-          '<span class="pcell">' +
-          '<span class="pname">' + esc(p.alias || shortName(rosterName(s, p.s))) + '</span>' +
-          pbMarks +
-          '</span>' +
-          '<span class="n">' + (p.k || 0) + '</span>' +
-          '<span class="n">' + (p.d || 0) + '</span>' +
-          '<span class="n clstr">' + (tr.paint || 0) + '</span>' +
+      if (MPE_MODE) {
+        // PARTICLE WORLDS: one row per ROUND for this seat — the mode, the role
+        // it held and the permille it banked — then the episode mean and the
+        // bump count. Kills and captures do not exist here and never appear as
+        // a column.
+        var cards = (s.over && s.over.cards) || [];
+        var seat = MPE_SEAT_OF[p.team];
+        var out = '';
+        for (var r = 0; r < cards.length; r++) {
+          var c = cards[r];
+          out += '<div class="ec-row">' +
+            '<span class="pcell"><span class="pname">' +
+            esc(String(c.mode || '').toUpperCase()) + '</span></span>' +
+            '<span class="n">' + esc(String((c.roles || [])[seat] || '')) + '</span>' +
+            '<span class="n clstr">' +
+            ((c.permille || [])[seat] != null
+              ? (c.permille[seat] / 1000).toFixed(3) : '') + '</span>' +
+            '</div>';
+        }
+        var mean = ((s.over && s.over.mean) || [])[seat];
+        out += '<div class="ec-row mvp">' +
+          '<span class="pcell"><span class="pname">MEAN</span></span>' +
+          '<span class="n">' + (((s.over && s.over.bumps) || [])[seat] || 0) +
+          ' bumps</span>' +
+          '<span class="n clstr">' +
+          (mean != null ? (mean / 1000).toFixed(3) : '') + '</span>' +
           '</div>';
+        return out;
       }
       var marks = endcardBadge('bs', p.tk, 'Backstab — killed a teammate');
       var cluster = (p.mk2 || 0) + (p.mk3 || 0);
@@ -3751,6 +3609,13 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
         '<span class="n clstr">' + (cluster > 0 ? cluster : '') + '</span>' +
         '<span class="n cap">' + capturedHeartsHtml(s, p) + '</span>' +
         '</div>';
+    }
+    if (MPE_MODE) {
+      // One panel per SEAT and the rows are the four ROUNDS, so the panel is
+      // rendered once from the seat's own colour rather than once per roster
+      // entry.
+      el.innerHTML = rowHtml({ team: team, s: -1 });
+      return;
     }
     if (grouped) {
       pols.forEach(function (pol) {
@@ -3770,7 +3635,7 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
   // changes (once per match in practice): one panel per team, in display order.
   var ecTeams = null;
   function ensureEndcardTeams(teams) {
-    var key = teams.join(',') + (PB_MODE ? '|pb' : '');
+    var key = teams.join(',') + (MPE_MODE ? '|mpe' : '');
     if (ecTeams === key) return;
     ecTeams = key;
     var wrap = $('ec-teams');
@@ -3779,13 +3644,13 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
       var el = document.createElement('div');
       el.className = 'ec-team';
       el.id = 'ec-team-' + team;
-      el.innerHTML = PB_MODE
+      el.innerHTML = MPE_MODE
         ? '<div class="ec-tname ' + team + '" id="ec-tname-' + team + '">' + team.toUpperCase() + '</div>' +
           '<div class="ec-lives">' +
-          '<span class="fl-num ' + team + '" id="ec-' + team + '">0:00</span>' +
-          '<span class="fl-cap">Hill time</span>' +
+          '<span class="fl-num ' + team + '" id="ec-' + team + '">0.000</span>' +
+          '<span class="fl-cap">Episode score</span>' +
           '</div>' +
-          '<div class="ec-thead"><span>Cog</span><span>Tags</span><span>Out</span><span>Paint</span></div>' +
+          '<div class="ec-thead"><span>Round</span><span>Role</span><span>Score</span></div>' +
           '<div id="ec-rows-' + team + '"></div>'
         : '<div class="ec-tname ' + team + '" id="ec-tname-' + team + '">' + team.toUpperCase() + '</div>' +
           '<div class="ec-lives">' +
@@ -3830,49 +3695,51 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
       if (winners.length) mvpSlot = winners[0].s;
     }
     teams.forEach(function (team) {
-      $('ec-' + team).textContent = PB_MODE
-        ? fmt(team === 'red' ? (o.hillRed || 0) : (o.hillBlue || 0))
+      $('ec-' + team).textContent = MPE_MODE
+        ? (((o.mean || [])[MPE_SEAT_OF[team]] || 0) / 1000).toFixed(3)
         : overLives(o, team);
       $('ec-tname-' + team).textContent = teamName(s, team, team.toUpperCase());
       $('ec-team-' + team).classList.toggle('win', !o.draw && o.winner === team);
       renderEndcardRows(s, team, $('ec-rows-' + team), mvpSlot);
     });
 
-    if (PB_MODE) {
-      // PAINTBALL: the verdict names the rule the server applied and always
-      // states both banked hill clocks.
-      var hillLine = 'RED holds ' + fmt(o.hillRed || 0) + ' — BLUE ' +
-        fmt(o.hillBlue || 0) + ' · game ' + (o.game || 1) + '/' + (o.games || 1) +
-        ' · ' + String(o.regime || '').toUpperCase();
-      if (o.draw) {
-        head.className = 'headline draw';
-        head.textContent = 'DEAD EVEN';
-        how.textContent = hillLine +
-          ' — both squads banked the same hill time, so this half scores 0.500 each.';
-        return;
+    if (MPE_MODE) {
+      // PARTICLE WORLDS: the verdict is the four-round table's headline — who
+      // scored the best MEAN, and the per-round story in the modes' own words.
+      // It names the RULE the server applied, always.
+      var means = o.mean || [];
+      var best = -1, bestSeat = -1, tied = false;
+      for (var mi = 0; mi < means.length; mi++) {
+        if (means[mi] > best) { best = means[mi]; bestSeat = mi; tied = false; }
+        else if (means[mi] === best) tied = true;
       }
-      var pbWinner = o.winner;
-      var pbWinName = teamName(s, pbWinner, String(pbWinner).toUpperCase());
-      head.className = 'headline ' + pbWinner;
-      head.textContent = pbWinName + ' WINS';
+      var bestTeam = MPE_TEAM_ORDER[bestSeat] || 'red';
+      var bestName = teamName(s, bestTeam, String(bestTeam).toUpperCase());
+      var story = (o.cards || []).map(function (c) {
+        return String(c.mode || '').toUpperCase() + ' ' + mpeCardHeadline(c);
+      }).join(' \u00b7 ');
+      var played = 'rounds played ' + (o.roundsPlayed || 0) + '/' +
+        (o.rounds || 4);
+      head.className = 'headline ' + (tied ? 'draw' : bestTeam);
+      head.textContent = tied
+        ? 'DEAD EVEN \u2014 ' + (best / 1000).toFixed(3)
+        : 'PARTICLE WORLDS \u2014 ' + bestName + ' ' + (best / 1000).toFixed(3);
       switch (o.endRule) {
-        case 'wipe':
-          head.textContent = pbWinName + ' WIPES THE FIELD';
-          how.textContent = hillLine +
-            ' — the other squad ran out of cogs, so the survivor was credited' +
-            ' every remaining tick.';
-          break;
-        case 'mercy':
-          how.textContent = hillLine +
-            ' — the lead was bigger than the clock left, so the rules ended it.';
-          break;
         case 'wall_clock':
-          how.textContent = hillLine +
-            ' — the engine hit its wall-clock budget and scored the half from' +
-            ' the hill counts at that tick.';
+          how.textContent = played + ' \u00b7 ' + story +
+            ' \u2014 the engine hit its 690 s wall-clock budget, so the round' +
+            ' in progress was banked from the ticks it ran and rounds never' +
+            ' started were excluded from the mean.';
+          break;
+        case 'sim_fault':
+        case 'host_error':
+          how.textContent = played + ' \u00b7 ' + story +
+            ' \u2014 a fault stopped the episode; it is scored from the rounds' +
+            ' already banked and nobody is credited a win.';
           break;
         default:
-          how.textContent = hillLine + ' — full time on the hill clock.';
+          how.textContent = played + ' \u00b7 ' + story +
+            ' \u2014 full time on all four round clocks.';
       }
       return;
     }
@@ -3968,11 +3835,8 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
     else if (k === '+' || k === '=') send('+');
     else if (k === '-' || k === '_') send('-');
     else if (k === 'o') setSpoilers(!getSpoilers());
-    // Board zoom rides z/x/0: +/- and 1..9 are already the server's speed
-    // commands, so they can't double as view keys.
-    else if (k === 'z') core.zoomAt(ZOOM_STEP);
-    else if (k === 'x') core.zoomAt(1 / ZOOM_STEP);
-    else if (k === '0') core.resetView();
+    // No zoom keys: the field is fixed and always fitted (see "view controls"
+    // below), so z/x/0 would be controls for a state the board never enters.
     // Arrows walk the view one CELL at a time; with shift, ten cells. A cell is
     // a fixed distance in the WORLD — the same ground on every map and at every
     // zoom — so arrowing is a way of stepping across the arena, not a nudge
@@ -4129,9 +3993,20 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
   window.addEventListener('pointerup', endPointer);
   window.addEventListener('pointercancel', endPointer);
 
-  // ---- view controls: zoom cluster + minimap ----------------------------
-  var ZOOM_STEP = 1.35;     // one button press / one z or x key
-  var SLIDER_TRAVEL = 1000;
+  // ---- view controls ----------------------------------------------------
+  // ZOOM IS DROPPED. The board is the fixed 1235 x 659 particle-worlds field
+  // and relayout() always fits it whole inside the frame, so per the design
+  // pin a fixed arena drops #viewpanel entirely: no zoom bar, no minimap, no
+  // z/x keys and no attachMinimap call (broadcast_core.js tolerates a missing
+  // minimap -- pendingMinimap stays null -- which is why that file stays
+  // byte-identical to the starter's). What survives is the touch-action sync
+  // and the cursor, because the core still reports a transform.
+  function syncViewUi(t) {
+    t = t || core.getTransform();
+    if (!t) return;
+    syncTouchAction(t);
+    if (!dragging) canvas.style.cursor = '';
+  }
   // One arrow press, in LOGICAL map pixels — a fixed cell of ground. 64px is
   // eight of the engine's fog-of-war cells (FovCellSize) and a bit over five
   // cog widths: ~19 cells across the 1235px arena, ~39 across a 2496px 4-team
@@ -4148,100 +4023,6 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
     var bs = lastState && lastState.bs > 0 ? lastState.bs : 1;
     return PAN_CELL_MAP_PX * bs;
   }
-  var minimapBox = $('minimap');
-  var zoomSlider = $('zoom-slider');
-  var zoomRead = $('zoom-read');
-  var btnZoomIn = $('zoom-in');
-  var btnZoomOut = $('zoom-out');
-  var sliderHeld = false;
-  var lastMiniAspect = '';
-
-  function sliderToZoom(travel, t) {
-    var lo = (t && t.minZoom) || 1, hi = (t && t.maxZoom) || 12;
-    return lo * Math.pow(hi / lo, travel / SLIDER_TRAVEL);
-  }
-  function zoomToSlider(z, t) {
-    var lo = (t && t.minZoom) || 1, hi = (t && t.maxZoom) || 12;
-    if (!(z > lo)) return 0;
-    return Math.round(SLIDER_TRAVEL * Math.log(z / lo) / Math.log(hi / lo));
-  }
-
-  // One place where the whole view UI is re-read off the core's transform: the
-  // slider, the readout, the button enable states, the minimap's shape and
-  // whether it is up at all. Every input path (buttons, slider, keys, pinch,
-  // drag, minimap, refit) lands here through onTransform, so no control can
-  // drift out of step with the board.
-  function syncViewUi(t) {
-    t = t || core.getTransform();
-    if (!t || !zoomSlider) return;   // a transform can land before the wiring
-    var z = t.zoom || 1, lo = t.minZoom || 1, hi = t.maxZoom || 12;
-    var zoomed = z > lo + 1e-6;
-    if (!sliderHeld) zoomSlider.value = String(zoomToSlider(z, t));
-    zoomSlider.setAttribute('aria-valuetext', zoomed ? z.toFixed(1) + 'x board zoom' : 'Fitted');
-    zoomRead.textContent = zoomed ? z.toFixed(1) + '×' : 'FIT';
-    zoomRead.classList.toggle('zoomed', zoomed);
-    btnZoomIn.disabled = z >= hi - 1e-6;
-    btnZoomOut.disabled = !zoomed;
-    // The minimap is the answer to "which part am I holding" — a question that
-    // only exists once part of the board is off-screen.
-    minimapBox.classList.toggle('on', zoomed);
-    if (t.nativeW > 0 && t.nativeH > 0) {
-      var aspect = t.nativeW + ' / ' + t.nativeH;
-      if (aspect !== lastMiniAspect) {
-        // A four-team board is square; a fixed 1.874:1 inset would squash it.
-        minimapBox.style.aspectRatio = aspect;
-        lastMiniAspect = aspect;
-      }
-    }
-    syncTouchAction(t);
-    if (!dragging) canvas.style.cursor = zoomed ? 'grab' : '';
-  }
-
-  core.attachMinimap($('minimap-canvas'));
-
-  btnZoomIn.addEventListener('click', function () { core.zoomAt(ZOOM_STEP); });
-  btnZoomOut.addEventListener('click', function () { core.zoomAt(1 / ZOOM_STEP); });
-  zoomSlider.addEventListener('pointerdown', function () { sliderHeld = true; });
-  window.addEventListener('pointerup', function () { sliderHeld = false; });
-  zoomSlider.addEventListener('input', function () {
-    var t = core.getTransform();
-    var next = sliderToZoom(Number(zoomSlider.value) || 0, t);
-    // The slider has no cursor to zoom toward, so it grows out of the middle of
-    // what you are already looking at — the focus point stays put.
-    core.setZoom(next);
-  });
-  // The slider owns the keyboard while focused (arrows step the zoom, not the
-  // pan) — otherwise a focused slider and the board would both answer.
-  zoomSlider.addEventListener('keydown', function (ev) { ev.stopPropagation(); });
-
-  // Click or drag the minimap to send the view there: with a colossal board the
-  // fastest way across it is to point at the destination, not to pan to it.
-  var miniDragging = false;
-  function minimapSeek(ev) {
-    var rect = minimapBox.getBoundingClientRect();
-    var t = core.getTransform();
-    if (!rect.width || !rect.height || !t || !(t.nativeW > 0)) return;
-    var fx = (ev.clientX - rect.left) / rect.width;
-    var fy = (ev.clientY - rect.top) / rect.height;
-    core.panTo(Math.min(1, Math.max(0, fx)) * t.nativeW,
-               Math.min(1, Math.max(0, fy)) * t.nativeH);
-  }
-  minimapBox.addEventListener('pointerdown', function (ev) {
-    ev.preventDefault();
-    ev.stopPropagation();
-    miniDragging = true;
-    // Capture is a convenience (drag past the frame keeps steering); it throws
-    // if the pointer is already gone, and that must not cost us the jump.
-    try {
-      if (minimapBox.setPointerCapture) minimapBox.setPointerCapture(ev.pointerId);
-    } catch (err) { /* no active pointer: the click still seeks */ }
-    minimapSeek(ev);
-  });
-  minimapBox.addEventListener('pointermove', function (ev) {
-    if (miniDragging) minimapSeek(ev);
-  });
-  minimapBox.addEventListener('pointerup', function () { miniDragging = false; });
-  minimapBox.addEventListener('pointercancel', function () { miniDragging = false; });
   canvas.addEventListener('dblclick', function (ev) {
     ev.preventDefault();
     core.resetView();
@@ -4327,90 +4108,97 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
   // through. Declared here (hoisted `var`, so onFrame sees it however early
   // the first frame lands) rather than duplicating any of it: the game block
   // must not re-implement naming, escaping, feed insertion or the transport.
-  PB_CTX = {
+  MPE_CTX = {
     $: $, C: C, esc: esc, fmt: fmt, send: send,
     teamCol: teamCol, activeTeams: activeTeams, teamOf: teamOf,
     teamName: teamName, rosterName: rosterName, shortName: shortName,
     pushFeed: pushFeed, banner: banner, togglePov: togglePov,
     getState: function () { return lastState; }
   };
-  if (window.PaintballChrome) window.PaintballChrome.install(PB_CTX);
+  if (window.MpeChrome) window.MpeChrome.install(MPE_CTX);
 
   relayout();
   core.start();
 })();
 </script>
 <!-- ============================================================
-     PAINTBALL additions to the inherited coworld-particle-worlds chrome
+     particle-worlds additions to the inherited coworld-ctf chrome
      ============================================================
-     Everything above this banner is the classic broadcast page, edited only
-     where the mode demands and always behind PB_MODE: the scorebug plates'
-     CONTENTS, the feed and beat routing, and the endcard's stat columns all
-     branch on PB_MODE, which latches on the first frame that carries a squad
-     field — a classic replay never enters any of it. The classic #viewpanel
-     (zoom bar + minimap) is kept for both modes: classic boards can be
-     colossal, and on the fixed paintball arena it simply reads FIT.
+     Everything above this banner is the starter's broadcast page, edited only
+     where the game demands and always behind MPE_MODE, which latches on the
+     first frame that carries a `mode` field: the scorebug plates' CONTENTS,
+     the feed and beat routing, and the endcard's stat columns all branch on
+     it. The starter's own appended PAINTBALL block is REMOVED with the
+     paintball mechanics, so this page carries exactly ONE game block. The
+     starter's #viewpanel (zoom bar + minimap) is removed too: the board is
+     the fixed 1235 x 659 field and relayout() always fits it whole, so per
+     the design pin a fixed arena drops it entirely.
 
      Nothing here touches the transport band. relayout() still owns --hudscale,
      --topband and --band on :root; the endcard still stops at
      bottom: var(--band, 0px) and is still dismissed by every seek; and every
      scrubber beat this block draws is a LABELLED, CLICKABLE BUTTON that seeks
-     on click, styled for EVERY kind the sim emits — gamestart, hillflip.red,
-     hillflip.blue, tagout.red, tagout.blue and gameover. The builder carries a
-     pb- prefix precisely so it can never be shadowed by the chrome alias
-     block's own hoisted declaration of the shared one (cogame-tandem,
-     2026-08-23).
+     on click, styled for EVERY kind the sim emits -- roundstart, firstword,
+     onpoint, tag, roundover -- and for no kind it does not. The builder
+     carries an mpe- prefix precisely so it can never be shadowed by the
+     chrome alias block's own hoisted declaration of the shared one
+     (cogame-tandem, 2026-08-23).
      ============================================================ -->
 <style>
-/* --- scorebug: hill chip, hill clock, tag line ------------------------- */
+/* --- scorebug: role glyph, episode score, round permille, symbol --------- */
 /* The plate name must survive a 360px featured-match iframe: it grows into
    whatever room the plate has and ellipsises only when it genuinely runs out,
-   never collapsing to a bare "…". */
+   never collapsing to a bare "...". */
 .plate-name {
   flex: 1 1 auto;
   min-width: 3.2em;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.plate .hillchip {
+.plate .mpe-glyph {
   font-family: var(--pixfont);
-  font-size: calc(13 * var(--u));
+  font-size: calc(15 * var(--u));
   line-height: 1;
-  min-width: calc(30 * var(--u));
+  min-width: calc(18 * var(--u));
   text-align: center;
-  padding: calc(3 * var(--u)) calc(4 * var(--u));
+  padding: calc(2 * var(--u)) calc(3 * var(--u));
   background: rgba(12, 9, 6, 0.55);
   box-shadow: inset 0 0 0 calc(1 * var(--u)) rgba(242, 232, 216, 0.14);
   flex: none;
-  font-variant-numeric: tabular-nums;
 }
-.plate .hillchip.own {
-  background: rgba(232, 163, 61, 0.16);
-  box-shadow: inset 0 0 0 calc(1.5 * var(--u)) currentColor;
-}
-.plate .pb-sub {
+.plate .mpe-sub {
   display: flex;
   align-items: center;
   gap: calc(8 * var(--u));
   margin-top: calc(3 * var(--u));
 }
-.plate.side-r .pb-sub { flex-direction: row-reverse; }
-.plate .pb-tags {
+.plate.side-r .mpe-sub { flex-direction: row-reverse; }
+.plate .mpe-round {
   font-family: var(--finefont);
   font-size: calc(8 * var(--u));
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--paper-dim);
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
-/* Under 640px of board the labels go: the plates read
-   "▮ daveey 1:56 — 1:14 daveey-1 ▮" plus the clock and the regime chip. */
-#stage.tiny .pb-tags,
-#stage.tiny .plate .lives-label,
-#stage.tiny .plate .hillchip { display: none; }
+.plate .mpe-sym {
+  font-family: var(--pixfont);
+  font-size: calc(13 * var(--u));
+  line-height: 1;
+  min-width: calc(14 * var(--u));
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.plate .mpe-sym.said { text-shadow: 0 0 calc(6 * var(--u)) currentColor; }
+/* Under .tiny (board <= 620px, which is every 360px featured embed) each plate
+   keeps only GLYPH + NAME + EPISODE SCORE: the round permille and the role
+   word are hidden rather than allowed to overflow. */
+#stage.tiny .plate .mpe-round,
+#stage.tiny .plate .mpe-lbl { display: none; }
 
-/* --- the regime chip under the clock ----------------------------------- */
-#pb-regime {
+/* --- the round chip under the clock ------------------------------------- */
+#mpe-round {
   font-family: var(--finefont);
   font-size: calc(7.5 * var(--u));
   letter-spacing: 0.16em;
@@ -4419,7 +4207,124 @@ body[data-noviewpanel] #viewpanel { display: none !important; }
   white-space: nowrap;
 }
 
-/* --- scrubber beats: one rule per kind the sim emits -------------------- */
+/* --- the mark rail: four coloured chips with their coverage ------------- */
+#mpe-rail {
+  position: absolute;
+  top: calc(var(--topband, 0px) + 6 * var(--u));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: calc(6 * var(--u));
+  padding: calc(3 * var(--u)) calc(7 * var(--u));
+  background: rgba(12, 9, 6, 0.72);
+  box-shadow: 0 0 0 1px rgba(232, 163, 61, 0.22);
+  font-family: var(--pixfont);
+  font-size: calc(10 * var(--u));
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#mpe-rail .rail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(3 * var(--u));
+  font-variant-numeric: tabular-nums;
+}
+#mpe-rail .rail-dot {
+  width: calc(8 * var(--u));
+  height: calc(8 * var(--u));
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+#mpe-rail .rail-chip.goal .rail-dot {
+  box-shadow: 0 0 0 calc(2 * var(--u)) rgba(242, 232, 216, 0.85);
+}
+#mpe-rail .rail-name {
+  font-family: var(--finefont);
+  font-size: calc(8 * var(--u));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+#mpe-rail .rail-cover { color: var(--amber); font-size: calc(10 * var(--u)); }
+/* Under .tiny the rail collapses to four colour chips with a single-digit
+   percentage: the mark NAMES go, the colours and the numbers stay. */
+#stage.tiny #mpe-rail .rail-name { display: none; }
+#stage.tiny #mpe-rail { gap: calc(4 * var(--u)); font-size: calc(9 * var(--u)); }
+
+/* --- the radio strip: RED F . BLUE - . GREEN C . YELLOW - --------------- */
+#mpe-radio {
+  position: absolute;
+  top: calc(var(--topband, 0px) + 30 * var(--u));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  display: flex;
+  align-items: center;
+  gap: calc(9 * var(--u));
+  padding: calc(2 * var(--u)) calc(7 * var(--u));
+  background: rgba(12, 9, 6, 0.62);
+  font-family: var(--pixfont);
+  font-size: calc(11 * var(--u));
+  line-height: 1;
+  pointer-events: none;
+  white-space: nowrap;
+}
+#mpe-radio .rad {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(4 * var(--u));
+}
+#mpe-radio .rad-who {
+  font-family: var(--finefont);
+  font-size: calc(8 * var(--u));
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+#mpe-radio .rad-sym { font-size: calc(13 * var(--u)); }
+#mpe-radio .rad.flash .rad-sym {
+  text-shadow: 0 0 calc(8 * var(--u)) currentColor;
+}
+#stage.tiny #mpe-radio .rad-who { display: none; }
+
+/* --- the crypto decode panel ------------------------------------------- */
+#mpe-crypto {
+  position: absolute;
+  top: calc(var(--topband, 0px) + 56 * var(--u));
+  left: calc(10 * var(--u));
+  z-index: 9;
+  display: none;
+  min-width: calc(150 * var(--u));
+  padding: calc(5 * var(--u)) calc(7 * var(--u));
+  background: rgba(12, 9, 6, 0.78);
+  box-shadow: 0 0 0 1px rgba(150, 108, 214, 0.35);
+  font-family: var(--pixfont);
+  font-size: calc(10 * var(--u));
+  line-height: 1.5;
+  pointer-events: none;
+}
+#mpe-crypto.on { display: block; }
+#mpe-crypto .cy-h {
+  font-family: var(--finefont);
+  font-size: calc(8 * var(--u));
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+}
+#mpe-crypto .cy-key { display: flex; gap: calc(6 * var(--u)); flex-wrap: wrap; }
+#mpe-crypto .cy-pair { font-variant-numeric: tabular-nums; }
+#mpe-crypto .cy-row { display: flex; gap: calc(5 * var(--u)); }
+#mpe-crypto .cy-ok { color: var(--green, #45a85e); }
+#mpe-crypto .cy-no { color: var(--paper-dim); }
+/* Under .tiny the panel collapses to two lines: the key and one row per
+   agent, both abbreviated, so a readout degrades rather than overflowing. */
+#stage.tiny #mpe-crypto { min-width: 0; font-size: calc(9 * var(--u)); }
+#stage.tiny #mpe-crypto .cy-h,
+#stage.tiny #mpe-crypto .cy-long { display: none; }
+
+/* --- scrubber beats: one rule per kind the sim emits, and no others ----- */
 /* Buttons, not divs: each carries a title + aria-label and seeks on click. */
 button.beat-marker {
   border: 0;
@@ -4428,41 +4333,62 @@ button.beat-marker {
   appearance: none;
   background: var(--paper-dim);
 }
-.beat-marker.gamestart {
+.beat-marker.roundstart {
   background: var(--paper);
   width: calc(2 * var(--u));
   height: calc(12 * var(--u));
   opacity: 0.75;
 }
-.beat-marker.hillflip { width: calc(3 * var(--u)); height: calc(12 * var(--u)); }
-.beat-marker.hillflip.red { background: var(--red); }
-.beat-marker.hillflip.blue { background: var(--blue); }
-.beat-marker.tagout { height: calc(6 * var(--u)); opacity: 0.85; }
-.beat-marker.tagout.red { background: var(--red); }
-.beat-marker.tagout.blue { background: var(--blue); }
-.beat-marker.gameover {
+.beat-marker.firstword {
+  background: var(--amber);
+  width: calc(2 * var(--u));
+  height: calc(8 * var(--u));
+}
+.beat-marker.onpoint { height: calc(10 * var(--u)); width: calc(3 * var(--u)); }
+.beat-marker.onpoint.red { background: var(--red); }
+.beat-marker.onpoint.blue { background: var(--blue); }
+.beat-marker.onpoint.green { background: var(--green); }
+.beat-marker.onpoint.yellow { background: var(--yellow); }
+.beat-marker.tag { height: calc(6 * var(--u)); opacity: 0.85; }
+.beat-marker.tag.red { background: var(--red); }
+.beat-marker.tag.blue { background: var(--blue); }
+.beat-marker.tag.green { background: var(--green); }
+.beat-marker.tag.yellow { background: var(--yellow); }
+.beat-marker.roundover {
   background: var(--amber);
   width: calc(3 * var(--u));
   height: calc(14 * var(--u));
 }
 
-/* --- buff pips over the feed rows -------------------------------------- */
-.feed-row .pb-buff { color: var(--amber); font-family: var(--pixfont); }
-.feed-row .pb-hill { color: var(--amber); letter-spacing: 0.08em; }
+/* --- the wire: plain-language rows ------------------------------------- */
+.feed-row .mpe-say { font-family: var(--pixfont); }
+.feed-row .mpe-note { color: var(--paper-dim); }
+.feed-row .mpe-round-line { color: var(--amber); letter-spacing: 0.08em; }
 </style>
 <script>
 (function () {
   'use strict';
-  // Every name here carries a pb- prefix ON PURPOSE. The page's chrome alias
+  // Every name here carries an mpe- prefix ON PURPOSE. The page's chrome alias
   // block declares the shared beat builder with a hoisted `var`, so a
   // game-block function of that same name is silently swallowed by it and the
   // scrubber ends up with unlabelled div markers that never seek
-  // (cogame-tandem, 2026-08-23). tests/test_viewer.nim asserts the whole
-  // alias list is untouched below this banner.
+  // (cogame-tandem, 2026-08-23). tests/test_viewer.nim asserts the whole alias
+  // list is untouched below this banner.
   var CTX = null;
-  var placed = {};          // "tick|kind|team" -> true (dedup)
-  var lastRegime = '';
-  var lastGame = -1;
+  var placed = {};              // "tick|kind|side" -> true (dedup)
+  var lastRound = -1;
+  var lastMode = '';
+  var symFlash = [0, 0, 0, 0];  // per seat: frames left on the change flash
+  var lastSym = ['', '', '', ''];
+  var TEAMS = ['red', 'blue', 'green', 'yellow'];
+  var SYM_HUE = {
+    A: '#e8604a', B: '#e8a33d', C: '#d6d25a', D: '#78c868',
+    E: '#48beb6', F: '#5a98e2', G: '#9e74dc', H: '#e282be'
+  };
+  var MARK_HUE = {
+    amber: '#e8a33d', teal: '#40b0a8', violet: '#966cd6', bone: '#e2dbc6'
+  };
+  var MARK_SHORT = { amber: 'A', teal: 'T', violet: 'V', bone: 'B' };
 
   function $(id) { return document.getElementById(id); }
 
@@ -4472,8 +4398,11 @@ button.beat-marker {
     return { st: st, span: mx - st };
   }
 
-  function pbBeat(s, tick, kind, team, label) {
-    var key = tick + '|' + kind + '|' + (team || '');
+  // The scrubber beat builder. Named mpeBeat so the chrome alias block's
+  // hoisted `var markBeat` can never shadow it, and it appends a real BUTTON
+  // with a title, an aria-label and a click that seeks.
+  function mpeBeat(s, tick, kind, side, label) {
+    var key = tick + '|' + kind + '|' + (side || '');
     if (placed[key]) return;
     placed[key] = true;
     var scrub = $('scrub');
@@ -4481,7 +4410,7 @@ button.beat-marker {
     var g = scrubGeometry(s);
     var el = document.createElement('button');
     el.type = 'button';
-    el.className = 'beat-marker ' + kind + (team ? ' ' + team : '');
+    el.className = 'beat-marker ' + kind + (side ? ' ' + side : '');
     el.style.left =
       (Math.min(1, Math.max(0, (tick - g.st) / g.span)) * 100) + '%';
     el.title = label;
@@ -4501,157 +4430,244 @@ button.beat-marker {
     CTX.pushFeed(row);
   }
 
-  function cogName(s, slot) {
-    var roster = s.roster || [];
-    for (var i = 0; i < roster.length; i++) {
-      if (roster[i].s === slot) return roster[i].alias || roster[i].name;
-    }
-    return '#' + slot;
+  function who(e, s) {
+    var seat = e.by != null ? e.by : e.who;
+    var colour = e.colour || TEAMS[seat] || '';
+    var alias = e.alias || ('#' + seat);
+    return '<span class="who ' + colour + '">' + CTX.esc(alias) + '</span>';
   }
 
-  // Every beat and feed row paintball produces. Returns true when the event
-  // was handled here, so the inherited switch never doubles it.
-  function pbEvent(e, s, ctx) {
+  function markLabel(e) {
+    return CTX.esc(String(e.markColour || ('mark ' + e.mark)).toUpperCase());
+  }
+
+  // Every beat and feed row particle worlds produces. Returns true when the
+  // event was handled here, so the inherited switch never doubles it.
+  function mpeEvent(e, s, ctx) {
     CTX = ctx;
     switch (e.k) {
-      case 'gamestart':
-        pbBeat(s, e.t, 'gamestart', '',
-          'Game ' + e.game + ' of ' + e.games + ' — ' +
-          String(e.regime || '').toUpperCase() + ' — click to jump here');
-        CTX.banner('GAME ' + e.game + '/' + e.games + ' — ' +
-          String(e.regime || '').toUpperCase(), 'amb');
+      case 'roundstart':
+        mpeBeat(s, e.t, 'roundstart', '',
+          'Round ' + e.round + ' of ' + e.rounds + ' \u2014 ' +
+          String(e.mode || '').toUpperCase() + ' \u2014 click to jump here');
+        CTX.banner('ROUND ' + e.round + '/' + e.rounds + ' \u2014 ' +
+          String(e.mode || '').toUpperCase(), 'amb');
+        feedRow('<span class="mpe-round-line">ROUND ' + e.round + ' \u2014 ' +
+          CTX.esc(String(e.mode || '').toUpperCase()) + ' \u2014 ' +
+          CTX.esc((e.roles || []).join(' / ').toUpperCase()) + '</span>');
         return true;
-      case 'hillflip':
-        if (e.team) {
-          pbBeat(s, e.t, 'hillflip', e.team,
-            String(e.team).toUpperCase() + ' takes the hill at ' + e.pct +
-            '% — click to jump here');
-          feedRow('<span class="pb-hill">' +
-            CTX.esc(String(e.team).toUpperCase()) + ' TAKES THE HILL — ' +
-            e.pct + '%</span>');
-          CTX.banner(String(e.team).toUpperCase() + ' TAKES THE HILL', e.team);
+      case 'firstword':
+        mpeBeat(s, e.t, 'firstword', '',
+          'First word of round ' + e.round + ': ' + e.symbol +
+          ' \u2014 click to jump here');
+        return true;
+      case 'word':
+        if (e.symbol && e.symbol !== '-') {
+          feedRow(who(e, s) + '<span class="glyph">says</span>' +
+            '<span class="badge mpe-say" style="color:' +
+            (SYM_HUE[e.symbol] || 'inherit') + '">' + CTX.esc(e.symbol) +
+            '</span>');
         } else {
-          feedRow('<span class="pb-hill">THE HILL IS CONTESTED</span>');
+          feedRow(who(e, s) +
+            '<span class="glyph">\u00b7</span><span class="badge">holds its' +
+            ' tongue</span>');
         }
         return true;
-      case 'tagout':
-        pbBeat(s, e.t, 'tagout', e.team,
-          CTX.esc(e.victimAlias || cogName(s, e.victim)) +
-          ' tagged out — click to jump here');
-        feedRow(
-          '<span class="who ' + (CTX.teamOf(s, e.by) || '') + '">' +
-          CTX.esc(e.byAlias || (e.by >= 0 ? cogName(s, e.by) : 'the arena')) +
-          '</span><span class="glyph">▸</span>' +
-          '<span class="who ' + (e.team || '') + '">' +
-          CTX.esc(e.victimAlias || cogName(s, e.victim)) + '</span>' +
-          '<span class="badge">tagged out</span>');
+      case 'onpoint':
+        mpeBeat(s, e.t, 'onpoint', e.colour || '',
+          (e.alias || '') + ' reached the goal \u2014 click to jump here');
+        feedRow(who(e, s) + '<span class="glyph">\u25b8</span>' +
+          '<span class="badge">is on ' + markLabel(e) + ', the goal</span>');
+        return true;
+      case 'decode':
+        feedRow(who(e, s) + '<span class="glyph">\u2192</span>' +
+          '<span class="badge ' + (e.right ? 'mpe-say' : 'mpe-note') + '">' +
+          markLabel(e) + (e.right ? ' \u2713' : ' \u2717') + ' (' +
+          (e.settled || 0) + 't)</span>');
+        return true;
+      case 'tag':
+        mpeBeat(s, e.t, 'tag', e.colour || '',
+          (e.alias || '') + ' tags the evader \u2014 click to jump here');
+        feedRow(who(e, s) + '<span class="glyph">\u00d7</span>' +
+          '<span class="badge">tags the evader (' +
+          ((e.seconds || 0) / 10).toFixed(1) + ' s)</span>');
+        return true;
+      case 'roundover':
+        mpeBeat(s, e.t, 'roundover', '',
+          'Round ' + e.round + ' over \u2014 click to jump here');
+        var perm = (e.permille || []).map(function (v, i) {
+          return TEAMS[i].toUpperCase() + ' ' + (v / 1000).toFixed(3);
+        }).join(' \u00b7 ');
+        feedRow('<span class="mpe-round-line">ROUND ' + e.round + ' \u2014 ' +
+          CTX.esc(String(e.mode || '').toUpperCase()) + ' \u2014 ' +
+          CTX.esc(perm) + '</span>');
+        return true;
+      case 'bump':
+      case 'cover':
+        // Continuous colour: the BOARD is that readout (the coverage ring and
+        // the wash around every mark), so these never take a feed row.
         return true;
       case 'gameover':
-        pbBeat(s, e.t, 'gameover', '',
-          'Game over — ' + (e.draw ? 'dead even' :
-            String(e.winner || '').toUpperCase() + ' holds the hill') +
-          ' — click to jump here');
-        return false;   // the end-card is state-driven; let the page see it too
-      case 'tag':
-        // The COMMON outcome in paintball: three touches tag a cog out, so
-        // most sprays that connect are this, not a tagout. The feed says so
-        // in the note's own words.
-        feedRow(
-          '<span class="who ' + (e.team || '') + '">' +
-          CTX.esc(e.victimAlias || cogName(s, e.victim)) +
-          '</span><span class="glyph">·</span>' +
-          '<span class="badge">tagged, ' + e.hp + ' hp left</span>');
-        return true;
-      case 'hillhold':
-      case 'paint':
-      case 'heal':
-      case 'spray':
-        return true;    // continuous colour; the BOARD is that readout
-      case 'kill':
-        return true;    // paintball draws the tagout row instead
+        return false;   // the endcard is state-driven; let the page see it too
     }
     return false;
   }
 
-  // The commander lines: the directive `note` and each cog's `say` are what a
-  // spectator actually sees the LLM doing, so they get their own feed rows.
+  // The commander lines: the directive `note` is what a spectator actually
+  // sees the LLM doing, so it gets its own feed row. It appears HERE and
+  // nowhere else -- a note is never shown to another seat.
   var seenDirective = {};
-  function pbDirectives(s) {
+  function mpeDirectives(s) {
     var records = s.directives;
     if (!records || !records.length) return;
     for (var i = 0; i < records.length; i++) {
       var d = records[i];
-      var key = d.game + ':' + d.turn + ':' + d.seat;
+      var key = d.round + ':' + d.turn + ':' + d.seat;
       if (seenDirective[key]) continue;
       seenDirective[key] = true;
       if (!d.note) continue;
-      feedRow('<span class="who ' + (d.team || '') + '">' +
-        CTX.esc(String(d.team || '').toUpperCase()) + ' command</span>' +
-        '<span class="glyph">:</span><span class="badge">' +
+      feedRow('<span class="who ' + (TEAMS[d.seat] || '') + '">' +
+        CTX.esc(String(d.alias || '')) + '</span>' +
+        '<span class="glyph">:</span><span class="badge mpe-note">' +
         CTX.esc(d.note) + '</span>');
     }
   }
 
-  function ensureRegimeChip() {
-    if ($('pb-regime')) return $('pb-regime');
+  function ensureRoundChip() {
+    if ($('mpe-round')) return $('mpe-round');
     var clock = $('clock');
     if (!clock) return null;
     var el = document.createElement('div');
-    el.id = 'pb-regime';
+    el.id = 'mpe-round';
     clock.appendChild(el);
     return el;
   }
 
-  function pbFrame(s, ctx, jumped) {
+  function ensurePanel(id, cls) {
+    if ($(id)) return $(id);
+    var stage = $('stage');
+    if (!stage) return null;
+    var el = document.createElement('div');
+    el.id = id;
+    if (cls) el.className = cls;
+    stage.appendChild(el);
+    return el;
+  }
+
+  function renderRail(s) {
+    var rail = ensurePanel('mpe-rail');
+    if (!rail || !s.marks) return;
+    var html = '';
+    for (var i = 0; i < s.marks.length; i++) {
+      var m = s.marks[i];
+      var pct = Math.round((m.close || 0) / 10);
+      html += '<span class="rail-chip' + (m.goal ? ' goal' : '') +
+        '" style="color:' + (MARK_HUE[m.c] || 'var(--paper)') + '">' +
+        '<span class="rail-dot"></span>' +
+        '<span class="rail-name">' + CTX.esc(String(m.c || '')) + '</span>' +
+        '<span class="rail-cover">' + pct + '%</span></span>';
+    }
+    if (s.mode === 'spread' && s.cover != null) {
+      html += '<span class="rail-chip"><span class="rail-cover">COVER ' +
+        s.cover + '%</span></span>';
+    }
+    if (rail.innerHTML !== html) rail.innerHTML = html;
+  }
+
+  function renderRadio(s) {
+    var strip = ensurePanel('mpe-radio');
+    if (!strip || !s.comm) return;
+    var html = '';
+    for (var i = 0; i < s.comm.length; i++) {
+      var c = s.comm[i];
+      var sym = c.sym && c.sym !== '-' ? c.sym : '\u2014';
+      if (lastSym[i] !== sym) { symFlash[i] = 12; lastSym[i] = sym; }
+      else if (symFlash[i] > 0) symFlash[i] -= 1;
+      html += '<span class="rad' + (symFlash[i] > 0 ? ' flash' : '') +
+        '" style="color:' + (SYM_HUE[c.sym] || 'var(--paper-dim)') + '">' +
+        '<span class="rad-who ' + (TEAMS[c.seat] || '') + '">' +
+        (TEAMS[c.seat] || '?').toUpperCase() + '</span>' +
+        '<span class="rad-sym">' + CTX.esc(sym) + '</span></span>';
+    }
+    if (strip.innerHTML !== html) strip.innerHTML = html;
+  }
+
+  function renderCrypto(s) {
+    var panel = ensurePanel('mpe-crypto');
+    if (!panel) return;
+    if (!s.crypto) { panel.classList.remove('on'); return; }
+    panel.classList.add('on');
+    var c = s.crypto;
+    var key = (c.key || []).map(function (pair) {
+      return '<span class="cy-pair" style="color:' +
+        (SYM_HUE[pair[0]] || 'var(--paper)') + '">' + CTX.esc(pair[0]) +
+        '\u2192' + CTX.esc(MARK_SHORT[pair[1]] || pair[1]) + '</span>';
+    }).join('');
+    var rows = (c.beliefs || []).map(function (b) {
+      var right = b.mark === c.goal;
+      return '<div class="cy-row ' + (right ? 'cy-ok' : 'cy-no') + '">' +
+        '<span class="cy-long">' + CTX.esc(String(b.alias || '')) + '</span>' +
+        '<span>\u2192 ' + CTX.esc(String(b.markColour || '?')) + '</span>' +
+        '<span>' + (right ? '\u2713' : '\u2717') + '</span>' +
+        '<span>(' + (b.settled || 0) + 't)</span></div>';
+    }).join('');
+    var html = '<div class="cy-h">GOAL ' +
+      CTX.esc(String(c.colour || '').toUpperCase()) + '</div>' +
+      '<div class="cy-key">KEY ' + key + '</div>' + rows;
+    if (panel.innerHTML !== html) panel.innerHTML = html;
+  }
+
+  function mpeFrame(s, ctx, jumped) {
     CTX = ctx;
     if (jumped) placed = {};
-    // The regime is on screen at ALL times: the resident/visitor split is the
-    // thing a spectator most needs told.
-    var chip = ensureRegimeChip();
+    // The round and the mode are on screen at ALL times: which of the four
+    // scenarios a spectator is watching is the thing they most need told.
+    var chip = ensureRoundChip();
     if (chip) {
-      var turn = s.turnTicks > 0
-        ? Math.floor(Math.max(0, s.t - (s.st || 0)) / s.turnTicks) + 1 : 0;
-      var turns = (s.mt > 0 && s.turnTicks > 0)
-        ? Math.max(1, Math.floor(s.mt / s.turnTicks)) : 0;
-      var text = 'game ' + (s.game || 1) + '/' + (s.games || 1) + ' · ' +
-        String(s.regime || '').toUpperCase() +
-        (turns > 0 ? ' · turn ' + Math.min(turn, turns) + '/' + turns : '');
+      var text = 'round ' + (s.round || 1) + '/' + (s.rounds || 1) + ' \u00b7 ' +
+        String(s.mode || '').toUpperCase() +
+        (s.turns > 0 ? ' \u00b7 turn ' + Math.min(s.turn || 1, s.turns) + '/' +
+          s.turns : '');
       if (chip.textContent !== text) chip.textContent = text;
     }
-    if (s.game !== lastGame || s.regime !== lastRegime) {
-      lastGame = s.game;
-      lastRegime = s.regime;
+    if (s.round !== lastRound || s.mode !== lastMode) {
+      lastRound = s.round;
+      lastMode = s.mode;
     }
-    pbDirectives(s);
+    renderRail(s);
+    renderRadio(s);
+    renderCrypto(s);
+    mpeDirectives(s);
     // The up-front beat timeline (shipped ONCE by the server) places every
-    // marker before playback reaches it, exactly as the starter's flag beats
-    // did — but as labelled buttons.
+    // marker before playback reaches it, as labelled buttons.
     if (s.beats && s.beats.length) {
       for (var i = 0; i < s.beats.length; i++) {
         var b = s.beats[i];
-        if (b.k === 'hillflip' && b.team) {
-          pbBeat(s, b.t, 'hillflip', b.team,
-            String(b.team).toUpperCase() + ' takes the hill at ' + b.pct +
-            '% — click to jump here');
-        } else if (b.k === 'tagout') {
-          pbBeat(s, b.t, 'tagout', b.team,
-            'A ' + String(b.team || '').toUpperCase() +
-            ' cog is tagged out — click to jump here');
-        } else if (b.k === 'gamestart') {
-          pbBeat(s, b.t, 'gamestart', '',
-            'Game ' + b.game + ' of ' + b.games + ' — ' +
-            String(b.regime || '').toUpperCase() + ' — click to jump here');
-        } else if (b.k === 'gameover') {
-          pbBeat(s, b.t, 'gameover', '', 'Game over — click to jump here');
+        if (b.k === 'roundstart') {
+          mpeBeat(s, b.t, 'roundstart', '',
+            'Round ' + b.round + ' of ' + b.rounds + ' \u2014 ' +
+            String(b.mode || '').toUpperCase() + ' \u2014 click to jump here');
+        } else if (b.k === 'firstword') {
+          mpeBeat(s, b.t, 'firstword', '',
+            'First word of round ' + b.round + ' \u2014 click to jump here');
+        } else if (b.k === 'onpoint') {
+          mpeBeat(s, b.t, 'onpoint', b.colour || '',
+            'A particle reached the goal \u2014 click to jump here');
+        } else if (b.k === 'tag') {
+          mpeBeat(s, b.t, 'tag', b.colour || '',
+            'A pursuer tags the evader \u2014 click to jump here');
+        } else if (b.k === 'roundover') {
+          mpeBeat(s, b.t, 'roundover', '',
+            'Round ' + b.round + ' over \u2014 click to jump here');
         }
       }
     }
   }
 
-  window.PaintballChrome = {
+  window.MpeChrome = {
     install: function (ctx) { CTX = ctx; },
-    frame: pbFrame,
-    event: pbEvent
+    frame: mpeFrame,
+    event: mpeEvent
   };
 })();
 </script>

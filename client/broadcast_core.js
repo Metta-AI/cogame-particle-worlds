@@ -265,7 +265,7 @@
 
     // ---- Motion interpolation ----
     // The sim advances 24 discrete states per second (ReplayFps / TargetFps
-    // in src/mpe/sim.nim) and a packet is one such state. Drawn as-is that
+    // in src/ctf/sim.nim) and a packet is one such state. Drawn as-is that
     // is a 41ms motion staircase on a 60/120Hz display, so every object
     // carries a DISPLAY position (dispX/dispY) that glides from wherever it
     // was last drawn to the packet's position over one packet interval, and

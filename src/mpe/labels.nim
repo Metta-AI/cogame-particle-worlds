@@ -126,7 +126,7 @@ const
     ## See `labelIdentity` for the ordering invariant. Scan by PREFIX only: the
     ## tail changes every time the wearer picks something up.
   LabelPrefixCogGun* = "cog gun "
-    ## The held paintball marker, `cog gun <color>` (board stream only).
+    ## The held particle-worlds marker, `cog gun <color>` (board stream only).
   LabelPrefixCogSprayCan* = "cog spray can "
     ## The held spray can, `cog spray can <color>`, which REPLACES the gun
     ## sprite while one is carried — so the silhouette shows the live weapon.
@@ -213,7 +213,7 @@ const
     ## own label (not an invisible marker), fog-gated by the barrier's center.
     ## `<x>,<y>` is the placement center in map pixels, `f<brads>` the
     ## placer's aim at placement (0..255, the flat middle side faces that
-    ## way, BarrierRadius=24px out), and `hp <n>` the paintball hits it can
+    ## way, BarrierRadius=24px out), and `hp <n>` the inherited hits it can
     ## still take (starts at 10). The band blocks every PAINT path — gun and
     ## spray — but never sight, movement, or grenades; any cog that drives
     ## into the band flattens it instantly. See `labelBarrierUp` for the
@@ -240,7 +240,7 @@ const
     ## The coarse facing an aim angle falls into; see `labelPlayer`.
   LabelSideLeft* = "left"
   LabelWeaponGun* = "gun"
-    ## Default paintball marker; see `labelWeapon` / `labelIdentity`.
+    ## Default particle-worlds marker; see `labelWeapon` / `labelIdentity`.
   LabelWeaponSpray* = "spray"
     ## Spray can. (0.7.x renamed the spray can, whose token was "arc"; the
     ## internal `hasSprayPaint` field kept its name, the wire token did not.)

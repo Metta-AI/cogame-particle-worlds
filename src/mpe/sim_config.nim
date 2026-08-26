@@ -700,11 +700,11 @@ proc validate(config: GameConfig) =
     if config.barrageSaturateSec < 1:
       raise newException(
         MpeError, "Config field barrageSaturateSec must be at least 1.")
-  if config.loadout notin [LoadoutMpe, LoadoutPaintball]:
+  if config.loadout notin [LoadoutMpe, LoadoutParticles]:
     raise newException(
       MpeError,
       "Config field loadout must be " & LoadoutMpe & " or " &
-        LoadoutPaintball & "; got " & config.loadout & "."
+        LoadoutParticles & "; got " & config.loadout & "."
     )
   if config.cogsPerTeam < 1 or config.cogsPerTeam > 8:
     raise newException(MpeError, "Config field cogsPerTeam must be 1..8.")
@@ -1086,14 +1086,14 @@ proc configJson*(config: GameConfig): string =
   # barrier-free game's replay config stays byte-identical to older builds.
   if config.barrierPickups > 0:
     node["barrierPickups"] = %config.barrierPickups
-  # Echo the paintball keys only when the mode is engaged, so a classic
-  # game's replay config stays byte-identical to pre-paintball builds. When
+  # Echo the inherited keys only when the mode is engaged, so a classic
+  # game's replay config stays byte-identical to pre-particle-worlds builds. When
   # the mode IS on, echo every key: the wasm viewer re-derives the paint grid
   # and the hill from this config, so a missing key would re-simulate a
   # different game.
-  let paintballOn = config.loadout != LoadoutMpe or config.floorPaint or
+  let particlesOn = config.loadout != LoadoutMpe or config.floorPaint or
     config.hill or config.numAgents > 0
-  if paintballOn:
+  if particlesOn:
     node["num_agents"] = %config.numAgents
     node["cogsPerTeam"] = %config.cogsPerTeam
     node["loadout"] = %config.loadout
@@ -1145,8 +1145,8 @@ proc configJson*(config: GameConfig): string =
       node["model"] = %config.model
   # sprayDamage acts in every mode (the spray cone reads it wherever it
   # fires), so like puddleDamagePct it is pinned whenever it departs from
-  # its default even with the paintball gates off.
-  if paintballOn or config.sprayDamage != SprayPaintDamage:
+  # its default even with the inherited gates off.
+  if particlesOn or config.sprayDamage != SprayPaintDamage:
     node["sprayDamage"] = %config.sprayDamage
   # Echo only the handicapped teams, as their authored 0..1 floats, so a
   # default (unhandicapped) game's replay config carries no handicaps key.

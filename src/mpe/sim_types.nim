@@ -17,303 +17,35 @@ import
   pixie
 
 const
-  GameName* = "mpe"
-  GameVersion* = "44"  ## GV44 (seating rule): THE HOMES ARE DEALT, NOT OWNED.
-    ## On every board with more than two teams, WHICH TEAM OWNS WHICH HOME is
-    ## now drawn per episode from the game seed instead of being fixed for all
-    ## time. The pads do not move: the same four congruent anchors, pedestals,
-    ## capture zones and spawn pockets are carved exactly as before, and the
-    ## protected floor, the pickup orbits and the terrain are byte-identical.
-    ## What rotates is OWNERSHIP — by a whole number of quarter-turns around
-    ## the home orbit, so adjacency is preserved (a team a quarter turn from
-    ## you before is a quarter turn from you after) and the plus layout's
-    ## opposite/adjacent arm structure survives intact. A home is a BUNDLE, so
-    ## the rotation carries all of it together through one remap (`homeSlot`):
-    ## spawn strip AND its arm orientation, pedestal, capture zone, spawn aim,
-    ## room naming and endzone paint. Motivation is measured, not aesthetic:
-    ## the live 4-team field wins 8.9 / 8.9 / 23.2 / 58.9% by home slot,
-    ## replicated across every policy, so a fixed assignment is a standing
-    ## handicap draw. Dealing the homes makes slot advantage a population-level
-    ## WASH without touching a single tuning number.
+  GameName* = "particle-worlds"
+  GameVersion* = "1"   ## GV1 (particle worlds): the FIRST version of this game.
+    ## Forked from `Metta-AI/coworld-ctf` at its GV44 and renumbered from 1,
+    ## because nothing in the starter's GameVersion history describes a
+    ## particle-worlds episode: no ctf replay re-simulates here and none should
+    ## be expected to. What the fork inherits, byte for byte, is the 24 Hz tick
+    ## loop, the Sprite v1 button-mask input, the fixed-point integer motion
+    ## model (`motionScale` 256, the `carryX`/`carryY` sub-pixel accumulators,
+    ## `applyMomentumAxis`'s wall slide and `bouncePlayers`' restitution), the
+    ## per-pixel wall mask, the `mapSpec` round trip, the replay codec with its
+    ## per-tick `gameHash` chain and its keyframe/lull machinery, the seat/cog
+    ## split and the two name spaces, the server-side decision layer and the
+    ## `COGAME_*` runtime contract.
     ##
-    ## TWO-TEAM PLAY IS UNCHANGED, byte for byte: Red left, Blue right is a
-    ## game contract, and the rotation is the identity at teamCount <= 2. But
-    ## 4-team spawn positions, pedestals and capture zones now depend on the
-    ## seed, so no 4-team GV43 replay re-simulates: fixtures re-recorded.
+    ## What is NEW at GV1: the four-scenario round schedule and its seeded
+    ## role permutation; four seeded landmarks with a seeded colour
+    ## permutation; the nine-value symbol radio (recorded and rendered, and
+    ## deliberately EXCLUDED from `gameHash` — nothing a commander says may
+    ## move the hash chain); damp-both-axes-then-drive motion at
+    ## `frictionNum` 192 (MPE's `damping = 0.25`); the four per-tick scoring
+    ## terms and the round bank; the public belief state
+    ## (`nearestMark`/`settledTicks`) and its `onpoint`/`decode` detectors; and
+    ## `checkFieldInvariants`, the sim guard the tick loop turns into
+    ## `fault`/`sim_fault`.
     ##
-    ## Previously GV43 (puddle rule): PUDDLES BITE TWICE AS HARD.
-    ## `DefaultPuddleDamagePct` goes 10 -> 20: a full second of continuous
-    ## paint-puddle occupancy now rolls a 20% chance of 1 damage instead of
-    ## 10%. The default matters because spec-pinned puddles (the campaign's
-    ## per-cell maps) ride `mapSpec` with no `puddleDamagePct` in the config,
-    ## so their replays echo NO pct key and re-simulate on whatever the
-    ## binary's default is — the roll's RNG draw happens on every completed
-    ## second regardless of outcome, so the stream is unchanged up to the
-    ## first draw in [10,20), where the outcome flips and the sims diverge.
-    ## (mapPuddles-knob replays are safe: the echo pins their pct
-    ## explicitly.) GV42 spec-pinned puddle replays therefore re-simulate
-    ## differently: fixtures re-recorded.
-    ##
-    ## Previously GV42 (heart rule): STAND ON THE PEDESTAL, TAKE THE
-    ## HEART. `FlagPickupRange` goes 12 -> 34, keyed to the drawn art instead
-    ## of a bare point: the planted heart is 60px across on a 96px pedestal,
-    ## so the old radius demanded the pinpoint CENTER of a target five times
-    ## its size. Players and policies stood visibly on the heart and did not
-    ## pick it up. GV42 makes the visual promise the mechanical one — heart
-    ## pixels under your feet means the steal fires. This is the second half
-    ## of the 2026-08-08 fix, which corrected a 28px sprite-center OFFSET but
-    ## left the precision demand in place. Steals now happen earlier (and at
-    ## all, in cases that used to fail), so no GV41 replay re-simulates:
-    ## fixtures re-recorded.
-    ##
-    ## Previously GV41 (clock rule): NO MORE OVERTIME. The GV23
-    ## action floor (kills/heart steals guaranteeing 500 ticks of clock,
-    ## banked as overtimeTicks) is removed outright: the clock only ever
-    ## counts down, and `maxTicks` is the exact scheduled draw ceiling.
-    ## With the grenade-barrage endgame configured the ceiling does not end
-    ## the game at all — the bombardment grinds on past 0:00 until at most
-    ## one team stands, so a draw needs the last players of two teams to
-    ## die on the same tick. overtimeTicks left the hash, so every replay
-    ## re-simulates differently: fixtures re-recorded.
-    ##
-    ## Previously GV40 (aim rule): RESTORE CONTINUOUS TURRET AIM.
-    ## `aimBrads` again spans all 256 integer headings, and `aimTurnRate` is
-    ## again brads/tick (default 5, ~7 degrees/tick, full turn ~2.1s), exactly
-    ## as introduced with decoupled aim. GV36's reinterpretation of the same
-    ## config value as 32-way rotation slots made the published value 5 turn
-    ## 40 brads/tick, overshooting bot targets and trapping held actions.
-    ## GV39 replays do not re-simulate under the restored aim arithmetic.
-    ##
-    ## GV39 (map format): QUAD-MIRROR SYMMETRY — 4-team
-    ## maps may be RECTANGULAR. A new `symQuadMirror` map symmetry authors the
-    ## TOP-LEFT quadrant and completes the board by reflecting it across both
-    ## center axes (mirrorX, mirrorY, and their composition rot180 — the
-    ## Klein four-group), instead of rot90's quarter turns, which demand a
-    ## square. Reflections preserve congruence exactly, so team fairness stays
-    ## bit-exact; mirror-image spinning diamonds counter-rotate (the rot180
-    ## image co-rotates). Default 4-team draws stay rot90/square; the
-    ## "quadmirror" mapSymmetry override opts a map in. Older viewers cannot
-    ## parse "quadmirror" specs.
-    ##
-    ## GV38 (spray rule): THE SPRAY IS ONE DIRECTIONAL
-    ## SHOT, NOT A SWEEP. A fired cone locks its aim at the fire instant and
-    ## points that way for its whole active window (`arcAimBrads`): turning the
-    ## cog mid-spray no longer rotates the cone across a fan of targets. The
-    ## cone's ORIGIN still rides its owner, so a moving sprayer drags the stream
-    ## forward — only the rotation is pinned. GV37 replays do not re-simulate.
-    ##
-    ## GV37 (obstacle format): map obstacles and trenches
-    ## may be `polygon` shapes (integer vertex rings), so curved / organic
-    ## terrain is authorable. Older viewers cannot parse the new spec kind.
-                       ## GV36 (superseded by GV40): the aim angle was changed
-                       ## to one of 32 discrete slots (8 brads
-                       ## = 11.25 deg apart), the classic fixed-rotation-count
-                       ## scheme. A held rotate button steps whole slots
-                       ## (aimTurnRate slots/tick, default 1); spawn aims sit
-                       ## on the grid; there are no finer-grained aim angles.
-                       ## Brads remain the wire unit — aim values are now
-                       ## always multiples of 8. Shot jitter and the cosmetic
-                       ## render fuzz are unchanged and apply on top.
-                       ##
-                       ## GV35 (stats rule): ELIMINATION DEATHS ARE NOT
-                       ## COMBAT DEATHS. When a team's heart is captured
-                       ## (GV32) every player on that team still dies with
-                       ## no respawn, but the fold no longer increments the
-                       ## per-player deaths stat and no longer logs a
-                       ## per-player "killed by" line — nobody shot these
-                       ## players; the team lost. The endscreen's D column,
-                       ## the reward-account stat lines, and the killfeed
-                       ## markers diffed from the deaths counter all stay
-                       ## records of combat only. The captor was never
-                       ## credited kills for the fold (kills are credited
-                       ## at weapon damage sites), so K already read clean.
-                       ## The deaths counter is hashed state, so GV34
-                       ## capture-ending replays do not re-simulate.
-                       ##
-                       ## GV34 (operator rule): THE GUN HAS ONE REAL RANGE,
-                       ## ITS AIM IS FUZZED, AND SIGHT REACHES 1.5x AS FAR.
-                       ## Three coupled changes:
-                       ## 1. Every map def ships the same fixed gunRange —
-                       ## 1050 px, the SMALL generated map's field width —
-                       ## instead of scaling it with the field (1300 arena,
-                       ## 1690 arena-large, up to 3380 giant). The gun is
-                       ## map-wide only on the smallest board; on anything
-                       ## larger paint falls short and closing distance
-                       ## matters. League configs can still override
-                       ## gunRange per game; old replays carry their own
-                       ## recorded value.
-                       ## 2. Each RELEASED shot's direction gets Gaussian
-                       ## angular noise on the deterministic sim RNG,
-                       ## calibrated from the live gunRange so a FULLY
-                       ## VISIBLE body at MAX range is hit exactly 80% of
-                       ## the time (~0.6 degrees sigma at 1050 px; ~99% at
-                       ## half range, ~100% close in — see AimJitterCentralZ
-                       ## for the derivation). The fuzzed direction drives
-                       ## target selection AND the tracer/stain march, so
-                       ## the paint flies where the roll says; events keep
-                       ## the intended locked heading. The extra RNG draw
-                       ## per shot shifts every later roll, so GV33 replays
-                       ## do not re-simulate.
-                       ## 3. The vision CONE cuts off at 1.5x the gun range
-                       ## (visionRange, 1575 px stock — it was unlimited,
-                       ## LOS permitting): sight outranges paint by half
-                       ## again, and both scale together under a config
-                       ## override. The close-quarters bubble is exempt.
-                       ## The first-person strip's wall march follows
-                       ## visionRange too. Broadcast-only (fog never enters
-                       ## the hash), but bot behavior depends on what bots
-                       ## see, so the fixtures are re-recorded with it in.
-                       ##
-                       ## GV33 (dead-team rule): A DEAD TEAM'S HEART LEAVES
-                       ## PLAY. A team wiped from the field (no live player
-                       ## and no lives left) has its heart retired on the
-                       ## spot exactly like a captured one — including a
-                       ## heart riding an enemy carrier's back, which drops
-                       ## from the carrier (freeing their speed and fire
-                       ## rate) instead of lingering as a live-looking
-                       ## objective nobody can score. Retired hearts also
-                       ## stop DRAWING entirely (GV32 left a captured heart
-                       ## lying flat where it fell): a dead team keeps its
-                       ## dim pedestal, but no heart anywhere on the board.
-                       ## The retire flips hashed flag state on wipes, so
-                       ## GV32 replays do not re-simulate.
-                       ##
-                       ## GV32 (4ffa rule): A CAPTURE ELIMINATES, THE LAST
-                       ## TEAM STANDING WINS. Capturing a heart no longer
-                       ## ends the game outright: the captured team is
-                       ## eliminated on the spot (every player dies with no
-                       ## respawn) and its heart leaves play where it was
-                       ## captured. The game ends when at most one team
-                       ## still stands — a 4-team winner has to capture all
-                       ## three rival hearts or outlive the field. Classic
-                       ## 2-team play is unchanged in outcome (eliminating
-                       ## the only rival ends the game on the first
-                       ## capture), but the end-state differs (losers dead,
-                       ## heart retired), so GV31 replays do not re-simulate.
-                       ##
-                       ## GV31 (operator rule): WEAPONS HIT BODIES, NOT
-                       ## POINTS. Three changes, all closing the same gap —
-                       ## paint visibly covering a cog that walked away clean.
-                       ## 1. The cone hits BODIES, not center points: a victim
-                       ## is tested as a disc of SprayPaintBodyRadius (half a
-                       ## cog), where it used to be the bare point its 1px
-                       ## collision box describes. Largest effect point-blank,
-                       ## where the cone was narrower than the cog it covered.
-                       ## 2. The reach grew 4 -> 5 squares, with the width
-                       ## grown to match so the 14-degree half-angle did NOT
-                       ## change. The 5th square is exactly what it takes to
-                       ## cover the tip of the plume the game draws: the mist
-                       ## is a chain of round puffs drawn oversize so they
-                       ## merge, so it always reached past the cone that sized
-                       ## it. test_spraypaint pins the containment.
-                       ## A cog can still be grazed by the plume's edge
-                       ## without damage (the overlap makes the mist ~15px
-                       ## wider than the cone); closing that too would need a
-                       ## 31-degree cone, which is a different weapon.
-                       ## 3. The GRENADE BLAST catches a cog whose SOLID BODY
-                       ## BOX (±PlayerHalf) touches the blast circle, not
-                       ## merely one whose position point falls inside it —
-                       ## the same point-vs-body gap as (1), in the last
-                       ## weapon that still had it. The gun already sampled
-                       ## its bullet corridor across ±PlayerHalf, so once the
-                       ## cone hits bodies the blast is the lone hold-out, and
-                       ## a cog visibly standing in the splat could take
-                       ## nothing. On-axis reach is now GrenadeBlastRadius +
-                       ## PlayerHalf (58px); the radius constant and the splat
-                       ## art are unchanged, so the splat now slightly
-                       ## UNDER-sells its reach (the mirror of the plume's
-                       ## overhang in (2)).
-                       ## NOTE "body" is deliberately two sizes here: the cone
-                       ## uses the DRAWN body (SprayPaintBodyRadius, 17px)
-                       ## because its whole point is covering visible paint,
-                       ## while the gun and the blast use the SOLID footprint
-                       ## (PlayerHalf, 6px) they have always used. Widening
-                       ## the blast to the drawn body would take it from +31%
-                       ## to +76% effective area, which is a balance change,
-                       ## not a consistency fix.
-                       ## GV30 (operator rule): every team's shield and spray
-                       ## can is RED's spot carried over by the map's OWN
-                       ## symmetry, not by a mirror. Mirroring a pickup on a
-                       ## rot180 board lands it in the rotation of Red's OTHER
-                       ## pickup, so Blue fought for a shield sitting in the
-                       ## cans' terrain — different cover, different sightlines
-                       ## to the same item. The 4-team boards had the rot90
-                       ## version of the same bug (a mirrored copy lands in the
-                       ## TRANSPOSE of Red's surroundings). Pickup positions
-                       ## move on every map, including the hand-authored
-                       ## arenas, so replays recorded under GV29 no longer
-                       ## reproduce and the fixtures are re-recorded.
-                       ## GV29 (operator rule): live spinning-diamond geometry
-                       ## extends to GENERATED terrain, fairly. Selection is
-                       ## closed under each map's symmetry group (a cross on
-                       ## rot90 maps, where a vertical band is not invariant),
-                       ## and spin DIRECTION follows it too: reflections turn
-                       ## image diamonds opposite ways, rotations turn them
-                       ## together. validateGeneratedMap now bounds the turn
-                       ## from both sides, which re-curated the map pool.
-                       ## GV28 (operator rule): on the HAND-AUTHORED arenas
-                       ## the spinning center diamonds are REAL GEOMETRY, not
-                       ## decoration. Their collision, bullet, and vision
-                       ## footprint is the rotated diamond the art draws —
-                       ## recomputed whenever the spin frame advances
-                       ## (DiamondSpinTicksPerFrame) — so cover you can see is
-                       ## cover you get, and a corner that has swept past no
-                       ## longer stops a shot. The rotation is derived from
-                       ## tickCount, so replays and every viewer agree; a
-                       ## player the sweep would engulf is pushed to the
-                       ## nearest free floor, never onto another body.
-                       ## Generated terrain (pool/gen, and so every 4-team
-                       ## map) keeps the GV27 baked static diamonds — see
-                       ## isSpinningDiamond for why.
-                       ## GV27 (operator rule): the default arena's
-                       ## column-1 glass windows alternate from both ends
-                       ## (stone, glass, stone, glass) — stubs 2, 4, and 6
-                       ## of 7 (y=108, 300, 491), a top/bottom-symmetric
-                       ## set replacing GV26's stubs 2, 5, 6; x-mirrored
-                       ## like every column-1 shape.
-                       ## TRENCHES are CONFIG-GATED and ship without a
-                       ## version bump, exactly like procedural terrain:
-                       ## the default arena has none, so its rules are
-                       ## byte-identical, and a league opts in through its
-                       ## own config (generated maps place pits per seed;
-                       ## mapPits/mapPitDensity steer them). A trench is a
-                       ## walkable dug-pit square — never a wall to
-                       ## movement, bullets, or vision. Dropping in and
-                       ## moving around inside are full speed; CLIMBING OUT
-                       ## (motion away from the pit's center while inside)
-                       ## is 1/5 speed (TrenchSpeedDivisor). Occupants fire
-                       ## at 1/3 rate (TrenchFireSlowdown,
-                       ## max-composed with the shield/carrier multiplier),
-                       ## and TrenchMissPct percent of gun shots that would
-                       ## hit an occupant fly straight over instead — the
-                       ## bullet continues down the ray and can hit a body
-                       ## behind (shots from inside the same trench are
-                       ## exempt). Replays pin the exact trench set via
-                       ## mapSpec, so playback is exact either way.
-                       ## Procedural terrain itself (mapPath "gen"/"pool",
-                       ## curated pool in map_pool.nim) is CONFIG-GATED and
-                       ## shipped without a version bump: the default arena
-                       ## layout is unchanged, and a league that enables it
-                       ## does so through its own config. Replays carry the
-                       ## exact geometry (mapSpec) either way.
-                       ## GV26 (three operator rules): (a) the SELF marker
-                       ## renders TRUE aim again — the fuzz hides OTHERS'
-                       ## aim, never your own state; (b) HEART carriers fire
-                       ## at 1/3 rate (CarrierFireSlowdown, shield-pattern);
-                       ## (c) column-1's FIFTH vertical bar (y=395 +
-                       ## x-mirror) is a glass window.
-                       ## GV25: dead players respawn at a RANDOM spot in
-                       ## their endzone (uniform over the home capture
-                       ## column, deterministic sim RNG) — a fixed respawn
-                       ## point can no longer be camped.
-                       ## GV24: soldier sprites in PLAYER views render with
-                       ## FUZZED gun rotation (±~20°, deterministic, both
-                       ## sides, self included) — exact aim is never readable
-                       ## off a sprite; broadcast board unaffected.
-                       ## GV23: a depleted shield layer breaks the shield
-                       ## outright (icon + fire slowdown end with the bubble).
-                       ## (GV23 also floored the clock on kills/steals; that
-                       ## action-floor overtime was removed in GV41.)
+    ## What is GONE at GV1, deleted rather than disabled: every weapon and its
+    ## art, every pickup, the heart objective, floor paint, King of the Hill,
+    ## hit points, lives, respawns and kills. Nothing in particle worlds can be
+    ## destroyed.
   ReplayFps* = 24
   DefaultMapPath* = "arena"
   DarkBgPath* = "data/darkbg.aseprite"
@@ -323,7 +55,7 @@ const
   CrewSpriteVariants* = 8
   ## HD top-down soldier: the real Cogs-vs-Clips cog, one tinted master per team
   ## (soldier_red/blue.png, facing SOUTH, smile visor visible) plus the shared
-  ## paintball gun master (paintgun.png, muzzle east). Body and gun are mounted
+  ## particle-worlds gun master (paintgun.png, muzzle east). Body and gun are mounted
   ## as ONE rigid unit — the gun held in FRONT of the face, both pointing the
   ## same way — and pre-rotated together through SoldierRotations aim steps:
   ## the cog looks where it aims. The canvas is larger than the body only so
@@ -512,7 +244,7 @@ const
   AchievementMedic* = "medic"          ## one cog took >= MedicHeals med kits in
                                        ## a single life.
   AchievementSniper* = "sniper"        ## every point of the team's damage
-                                       ## came from the paintball gun.
+                                       ## came from the inherited gun.
   AchievementBanksy* = "banksy"        ## >= BanksyPct of the team's damage
                                        ## came from spray paint.
   AchievementPack* = "pack"            ## EVERY cog of the team spent
@@ -688,7 +420,7 @@ const
 
   BarrierPickupRange* = 12    ## touch radius to pick a cardboard barrier up.
   BarrierRespawnTicks* = 30 * ReplayFps  ## a taken barrier pickup refills after 30s.
-  BarrierHp* = 10             ## paintball hits a placed barrier soaks before
+  BarrierHp* = 10             ## particle-worlds hits a placed barrier soaks before
                               ## it is gone. Only the gun chips it; the spray
                               ## cone is merely blocked, and grenades fly
                               ## over it like every other obstacle.
@@ -748,9 +480,9 @@ const
   ShoutTicks* = 3 * ReplayFps ## a shout stays observable this long.
   ShoutCooldownTicks* = ReplayFps  ## at most one shout per second.
 
-  # --- Paintball King of the Hill (docs/plans/2026-08-25-paintball-design.md) ---
+  # --- Particle worlds King of the Hill (docs/plans/2026-08-25-particle-worlds-design.md) ---
   # Every value below is a DEFAULT for the matching GameConfig field; a
-  # variant may override it. All paintball arithmetic is integer-only so the
+  # variant may override it. All particle-worlds arithmetic is integer-only so the
   # native server and the wasm viewer re-derive the identical tick.
   PaintTile* = 34               ## px side of one floor-paint tile: one cog body.
   MaxPaintTiles* = 768          ## render-pool ceiling on the paint grid; the
@@ -765,14 +497,14 @@ const
   HillFlipThrottleTicks* = 12   ## min ticks between two `hillflip` beats, so a
                                 ## contested rim cannot flood the feed.
   DefaultCogsPerTeam* = 4       ## cogs one seat commands (RED-alpha..delta).
-  DefaultSprayDamage* = 1       ## hp per cone touch under the paintball loadout
+  DefaultSprayDamage* = 1       ## hp per cone touch under the particle loadout
                                 ## (the starter's SprayPaintDamage is 3): three
                                 ## touches tag a 3 hp cog out, which is what
                                 ## makes the heal half of the buff matter.
   DefaultTurnTicks* = 108       ## 4.5 s of sim time per decision turn.
   ## v1.1 timing amendment (2026-08-25). The 0.1.2 deadlines were 4500/2000 ms
   ## inside a 7000 ms cap, and curly's timeout is CURLOPT_TIMEOUT — whole
-  ## seconds — so attempt 1 really ran with 4 s. Paintball's own sidecar
+  ## seconds — so attempt 1 really ran with 4 s. Particle worlds's own sidecar
   ## measured a 4618 ms median over 85 hosted calls (56 of them past 4 s) and
   ## every successful LLM directive reported a 3999–4001 ms latency: the
   ## deadline, not the model, was answering. All three values are now whole
@@ -788,7 +520,7 @@ const
                                 ## episodeTimeoutSeconds (the 60% pin).
   DefaultMaxOutputTokens* = 900 ## 400 truncates Haiku mid-object.
   LoadoutMpe* = "mpe"           ## the starter's loadout: pickups, gun, hearts.
-  LoadoutPaintball* = "paintball"  ## spray can always held, no pickups, no gun.
+  LoadoutParticles* = "particle-worlds"  ## spray can always held, no pickups, no gun.
   RegimeResidentText* = "resident"
   RegimeVisitorText* = "visitor"
   MaxNoteRunes* = 160           ## directive note cap, in RUNES (never bytes).
@@ -1555,13 +1287,13 @@ type
                                   ## default, byte-identical to the
                                   ## pre-barrier game (no spawns, no carries,
                                   ## no placements, no new RNG draws).
-    # --- paintball gates (all OFF by default: a gate-off config plays the
+    # --- particle-worlds gates (all OFF by default: a gate-off config plays the
     # starter's rules unchanged, which is what keeps the inherited engine
     # meaningful) ---
     numAgents*: int               ## seats (websocket connections). 2 here; a
                                   ## seat commands one four-cog squad.
     cogsPerTeam*: int             ## cogs a team fields (4).
-    loadout*: string              ## LoadoutMpe (default) or LoadoutPaintball.
+    loadout*: string              ## LoadoutMpe (default) or LoadoutParticles.
     floorPaint*: bool             ## the paint grid exists and cones repaint it.
     paintBuff*: bool              ## own/enemy paint changes speed and heals.
     hill*: bool                   ## KotH replaces the capture win condition.
@@ -1704,7 +1436,7 @@ type
                                ## achievement), excluded from gameHash.
     grenadeDamageDealt*: int   ## the grenade-blast share of damageDealt;
                                ## analysis-only, excluded from gameHash.
-    gunDamageDealt*: int       ## the paintball-gun share of damageDealt
+    gunDamageDealt*: int       ## the inherited-gun share of damageDealt
                                ## (`sniper`); analysis-only.
     sprayDamageDealt*: int     ## the spraypaint-spray share of damageDealt
                                ## (`banksy`); analysis-only.
@@ -1994,7 +1726,7 @@ type
                                ## across the aim.
     minX*, minY*, maxX*, maxY*: int  ## coverage bounding box (band included)
                                ## for cheap point rejection.
-    hp*: int                   ## paintball hits left (starts at BarrierHp).
+    hp*: int                   ## particle-worlds hits left (starts at BarrierHp).
     team*: Team                ## the placer's team (tints the tape stripe).
     placedTick*: int
 
@@ -2122,7 +1854,7 @@ type
                                ## kept OUT of gameHash like puddleTicks so
                                ## barrier-free games hash identically to
                                ## pre-barrier builds.
-    # --- paintball state (appended at the END of the type: keyframes are
+    # --- particle-worlds state (appended at the END of the type: keyframes are
     # flatty-POSITIONAL, so new fields may only be appended) ---
     paintOwner*: seq[uint8]    ## gw*gh tiles: 0 unpainted, 1 RED, 2 BLUE.
                                ## HASHED, eight bytes at a time.

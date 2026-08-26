@@ -1,0 +1,31 @@
+[
+  {
+    "name": "particle-worlds-swarm",
+    "run": "/bin/particle-worlds-player",
+    "env": {
+      "PLAYER_PROMPT": "Take the position first and talk second. Your default order in every round is \"cover\" on a mark, because a particle sitting on a mark scores and a particle in transit does not.\nSPREAD: claim the mark nearest YOU on turn 1 and announce it with the symbol whose position in A..H equals the mark index plus one (mark 0 -> A, 1 -> B, 2 -> C, 3 -> D). Then never change marks, even if somebody else claims yours - two particles trading marks all round covers two and leaks two. If you hear your own symbol from another particle first, take the LOWEST-index unclaimed mark instead and say its letter. Keep 40 pixels off any other particle: the bump penalty is small but it is pure loss.\nDECEIVE as a good agent: exactly ONE of you covers the goal and it is the one already closest to it on turn 1; say A if that is you, and if you hear an A first then it is not you. The other two \"orbit\" the two marks FURTHEST from the goal, one each, at 120 pixels - an orbit reads as interest, and interest is what the adversary chases. Never send a symbol you have not already used this round while the adversary is within 300 pixels of the goal.\nDECEIVE as the adversary: ignore where the good agents are AND go to the mark that has the fewest of them near it in the second half of the round. Three agents pretending are three agents in motion; the goal is the mark somebody QUIETLY stopped on. Use \"cover\" and re-evaluate every turn.\nCRYPTO as speaker: send the key symbol for the goal colour, every single turn, without variation. The listener needs repetition more than it needs cleverness.\nCRYPTO as listener: do not move toward the goal until turn 4 or later. \"orbit\" a wrong mark until then, then \"go\" to the goal in one straight run. An eavesdropper 200 pixels behind you cannot beat you to a mark you reach at cruise.\nCRYPTO as eavesdropper: \"shadow\" the listener at 60 pixels for the first half and then \"cover\" whichever mark the listener has settled on. Do not guess from symbols; you have no key.\nTAG as evader: \"evade\", every turn, and keep your target away from corners - a corner is where three pursuers convert. TAG as pursuer: \"shadow\" the evader and say the letter of the quadrant you are driving it toward (A north-west, B north-east, C south-west, D south-east) so the other two can close the box."
+    }
+  },
+  {
+    "name": "particle-worlds-cipher",
+    "run": "/bin/particle-worlds-player",
+    "player": "ply_bac48eb1-662e-44f8-973d-f3e016dccf5d",
+    "env": {
+      "PLAYER_PROMPT": "Win the information game and the positions follow. Treat the radio as a protocol you are negotiating in public, and assume every other particle is reading it.\nEstablish a convention on turn 1 of every round and never break it: your symbol always names WHAT YOU ARE ABOUT TO DO, not what you see. E = \"I am holding still\", F = \"I am committing to a mark\", G = \"I am faking\", H = \"ignore me\". A silent particle is an unpredictable particle, so be silent (\"-\") only when silence itself is the message.\nSPREAD: send F on the turn you commit and E once you have arrived, then stay silent. If two of you send F in the same turn, the one whose colour comes later in RED, BLUE, GREEN, YELLOW yields and takes the nearest unclaimed mark.\nDECEIVE as a good agent: send G every turn, from every seat, including the one actually covering the goal. A channel where everybody claims to be faking carries no information, which is exactly what you want when the adversary is listening. Cover the goal with the agent closest to it and orbit the other two around DIFFERENT marks, swapping which mark every second turn.\nDECEIVE as the adversary: the good agents are three and one of them is telling the truth by accident. Score the four marks each turn by (how long a good agent has been within 150 pixels of it) minus (how much that agent has moved in the last two turns) and \"cover\" the winner. Stillness is the tell.\nCRYPTO as speaker: send the key symbol for the goal colour on turns 1 and 2, then send a DIFFERENT non-key symbol for the rest of the round. Repetition is what an eavesdropper correlates with a listener's turn; a channel that goes quiet after the message has already been delivered gives it nothing to work with.\nCRYPTO as listener: decode on turn 1 or 2, then \"orbit\" the mark DIAGONALLY OPPOSITE the goal for two turns before running. If an eavesdropper is within 250 pixels of you when you decide to run, spend one more turn on \"evade\" first - your score pays for their distance as much as for your arrival.\nCRYPTO as eavesdropper: split the board with the other eavesdropper. Send H so it knows you are not the listener, and \"cover\" whichever two marks the listener has NOT visited by turn 5; you are paid for being on the goal, not for being right about the key.\nTAG as evader: \"evade\" and stay within 250 pixels of the middle of the field.\nTAG as pursuer: never all three \"shadow\". Two \"shadow\" the evader and one goes to the point 300 pixels ahead of the evader's velocity with \"go\" - the tag lands on the interception, not on the tail."
+    }
+  },
+  {
+    "name": "particle-worlds-drifter",
+    "run": "/bin/particle-worlds-player",
+    "env": {
+      "PLAYER_SCRIPTED": "drifter"
+    }
+  },
+  {
+    "name": "particle-worlds-beeline",
+    "run": "/bin/particle-worlds-player",
+    "env": {
+      "PLAYER_SCRIPTED": "beeline"
+    }
+  }
+]

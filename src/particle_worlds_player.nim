@@ -106,7 +106,7 @@ when isMainModule:
   # admitted, so the first registration AND a single re-send keyed on the first
   # received frame can both land while the seat has no index yet. The server
   # dropped them and the champion played the scripted baseline for the whole
-  # episode (the paintball round-3 scar, inherited from coworld-ctf). The server now holds an
+  # episode (the inherited round-3 scar, inherited from coworld-ctf). The server now holds an
   # unappliable registration, and this end keeps re-sending it for the first
   # ~10 s of frames, which covers the lobby whichever seat connects first.
   # Registering twice is harmless: the server just re-reads the same fields.

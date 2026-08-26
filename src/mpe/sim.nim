@@ -168,11 +168,11 @@ proc barrierSpawnPoints*(gameMap: MpeMap, perTeam: int): seq[tuple[x, y: int]] =
     )
     result.add(gameMap.teamOrbitPoints(red))
 
-proc paintballLoadout*(sim: SimServer): bool {.inline.} =
-  ## True while the paintball loadout is on: every cog holds a spray can and
+proc particleLoadout*(sim: SimServer): bool {.inline.} =
+  ## True while the particle loadout is on: every cog holds a spray can and
   ## never loses it, the gun is disabled (the starter's own rule for a can
   ## carrier), NO pickups are placed at all, and there is no heart objective.
-  sim.config.loadout == LoadoutPaintball
+  sim.config.loadout == LoadoutParticles
 
 template placeWalkablePickups(
   sim: var SimServer,
@@ -184,12 +184,12 @@ template placeWalkablePickups(
   ## the nearest walkable floor, and refills every spawn. (Grenade spawns
   ## keep their own placement — they are never nudged.)
   ##
-  ## Under the paintball loadout NO pickup is placed at all: the family is
+  ## Under the particle loadout NO pickup is placed at all: the family is
   ## emptied instead. The pickup/update path is already skipped there, so an
   ## un-emptied family could not be taken — but it was still reported in the
   ## seats' first-person JSON, listed as a map item and drawn on the board, so
   ## the picture and the LLM's view both carried objects the rules do not have.
-  if sim.paintballLoadout():
+  if sim.particleLoadout():
     sim.spawnsField.setLen(0)
     return
   let targetsOnce = targets   # evaluate the expression once, not per use
@@ -333,7 +333,7 @@ proc disarmParticles*(sim: var SimServer) =
     sim.players[i].fireWindup = 0
 
 proc retireHearts*(sim: var SimServer) {.gcsafe.} =
-  ## There is no heart objective under the paintball loadout: `hill` replaces
+  ## There is no heart objective under the particle loadout: `hill` replaces
   ## the capture win condition. Marking every flag RETIRED is the starter's own
   ## out-of-play state (GV32/GV33) — a retired heart is never drawn, cannot be
   ## stolen and cannot be captured — so the objective disappears from the board
@@ -404,7 +404,7 @@ proc startGame*(sim: var SimServer) =
   sim.resetShields()
   sim.resetSprayPaints()
   sim.resetBarriers()
-  # Paintball: the can is issued for good, the hearts leave play, and the
+  # Particle worlds: the can is issued for good, the hearts leave play, and the
   # floor starts clean. Each GAME of the episode is an independent board.
   sim.disarmParticles()
   sim.retireHearts()
@@ -809,7 +809,7 @@ proc paintPathClear*(sim: SimServer, ax, ay, bx, by: int): bool =
   true
 
 proc paintConeTiles*(sim: var SimServer, attackerIndex: int): tuple[tiles, hillTiles: int] =
-  ## NEW (paintball): repaints every PAINTABLE tile whose CENTRE lies inside
+  ## NEW (particle worlds): repaints every PAINTABLE tile whose CENTRE lies inside
   ## this cog's active cone, in the sprayer's team colour. Called once per
   ## active cone per tick from resolveActiveArcCones, in cog index order, so
   ## two cones overlapping a tile on one tick resolve deterministically.
@@ -867,7 +867,7 @@ proc flattenBarrier(sim: var SimServer, index: int, color: uint8,
   sim.placedBarriers.delete(index)
 
 proc damageBarrier(sim: var SimServer, index, hitX, hitY: int, color: uint8) =
-  ## Applies one paintball hit to a standing barrier: a splat on the
+  ## Applies one particle-worlds hit to a standing barrier: a splat on the
   ## cardboard, and after BarrierHp hits the barrier is gone.
   sim.splatters.add SplatterFx(
     x: hitX, y: hitY, tick: sim.tickCount, color: color, hit: false
@@ -960,9 +960,9 @@ proc killPlayer*(
   sim.players[targetIndex].hasGrenade = false
   sim.players[targetIndex].hasShield = false
   sim.players[targetIndex].shieldHp = 0
-  # Under the paintball loadout the can is never lost: a tagged-out cog comes
+  # Under the particle loadout the can is never lost: a tagged-out cog comes
   # back holding it, because there is nowhere on the map to pick another up.
-  sim.players[targetIndex].hasSprayPaint = sim.paintballLoadout()
+  sim.players[targetIndex].hasSprayPaint = sim.particleLoadout()
   sim.players[targetIndex].arcTicksLeft = 0
   sim.players[targetIndex].arcAimBrads = -1
   sim.players[targetIndex].throwCharge = 0
@@ -1209,8 +1209,8 @@ proc resolveActiveArcCones*(sim: var SimServer) =
           let (sxw, syw) = sim.seatInWall(rx, ry, ux, uy)
           sim.addPaintStain(sxw, syw, teamColor(attacker.team), onWall = true)
           break sprayStain
-    # NEW (paintball): the same cone repaints the FLOOR TILES it covers. This
-    # is the only thing that paints the floor under the paintball loadout —
+    # NEW (particle worlds): the same cone repaints the FLOOR TILES it covers. This
+    # is the only thing that paints the floor under the particle loadout —
     # there is no gun, no grenade and no barrage — so a squad's territory is
     # exactly the ground its cans have swept.
     block paintFloorFromCone:
@@ -1237,7 +1237,7 @@ proc resolveActiveArcCones*(sim: var SimServer) =
         sim.players[arcFire.attacker].arcHitMask =
           sim.players[arcFire.attacker].arcHitMask or bit
       # A bubble that eats the burst keeps the body clean, exactly as with a
-      # paintball (see the gun's damage site).
+      # particle-worlds (see the gun's damage site).
       let bubbleUp = sim.players[victimIndex].hasShield and
         sim.players[victimIndex].shieldHp > 0
       let sprayDamage = max(1, sim.config.sprayDamage)
@@ -1523,7 +1523,7 @@ proc applyFire(sim: var SimServer, shot: PendingGunShot) =
       let
         rx = sx + int(round(ux * float(step)))
         ry = sy + int(round(uy * float(step)))
-      # Cardboard before stone: a standing barrier soaks the paintball (one
+      # Cardboard before stone: a standing barrier soaks the inherited (one
       # of its BarrierHp hits) where a wall would merely wear the stain.
       if sim.placedBarriers.len > 0:
         struckBarrier = sim.barrierIndexAt(rx, ry)
@@ -1579,7 +1579,7 @@ proc applyFire(sim: var SimServer, shot: PendingGunShot) =
         sim.rng.rand(999) < sim.config.perkMods.luckChance:
       damage = sim.config.perkMods.luckDamage
     let blocked = sim.absorbDamage(targetIndex, damage, shooterIndex, "gun")
-    # Paintball paint marks the body only when the shield bubble ISN'T eating it
+    # Particle worlds paint marks the body only when the shield bubble ISN'T eating it
     # (a bubble dent draws no body paint). Stamp so the EYES-PiP visor splat
     # fires for THIS paint hit — and only for a PAINT hit (gun/grenade). The
     # spray cone stamps it at its own damage site.
@@ -1656,7 +1656,7 @@ proc applyFire(sim: var SimServer, shot: PendingGunShot) =
           color: shooter.color,
           hit: true
         )
-        # NO terrain stain here: a paintball that connects spends its paint ON
+        # NO terrain stain here: a particle-worlds that connects spends its paint ON
         # THE COG (the splat above). Only shots that MISS reach terrain and
         # mark it — that is the whole fiction, and staining hit sites too made
         # the arena read as painted wherever cogs merely stood.
@@ -1947,7 +1947,7 @@ proc explodeGrenade(sim: var SimServer, grenade: AirborneGrenade) =
         elif victimTrench == landingTrench: GrenadeTrenchDamage
         else: GrenadeTrenchSplashDamage
       # Read the bubble BEFORE absorbDamage drains shieldHp: a bubble that eats
-      # the blast keeps the body clean, exactly as with a paintball (see the
+      # the blast keeps the body clean, exactly as with a particle-worlds (see the
       # gun's damage site).
       bubbleUp = sim.players[i].hasShield and sim.players[i].shieldHp > 0
       blocked = sim.absorbDamage(i, dmg, throwerIndex, "grenade")
@@ -3228,7 +3228,7 @@ proc updateBarrage*(sim: var SimServer) =
       sim.launchBarrageShell()
 
 proc updatePaintBuff*(sim: var SimServer) =
-  ## NEW (paintball): the once-per-tick "what am I standing on" evaluation.
+  ## NEW (particle worlds): the once-per-tick "what am I standing on" evaluation.
   ##
   ## Runs at the END of tick t; the speed multiplier it records is consumed by
   ## `applyInput` on tick t+1, so there is exactly ONE evaluation per cog per
@@ -3266,7 +3266,7 @@ proc updatePaintBuff*(sim: var SimServer) =
     )
 
 proc updateHill*(sim: var SimServer) =
-  ## NEW (paintball): recompute hill ownership from the incremental tile
+  ## NEW (particle worlds): recompute hill ownership from the incremental tile
   ## counts and bank one point per owned tick. An ownership CHANGE emits a
   ## `hillflip` analysis event, throttled to at most one per
   ## HillFlipThrottleTicks so a contested rim cannot flood the feed.
@@ -3388,7 +3388,7 @@ proc checkMaxTicks(sim: var SimServer) =
   sim.finishGame(Red, isDraw = true, timeLimitReached = true)
 
 proc checkKothEnd*(sim: var SimServer) =
-  ## NEW (paintball): replaces checkWinCondition + checkMaxTicks while
+  ## NEW (particle worlds): replaces checkWinCondition + checkMaxTicks while
   ## `hill` is on, evaluated in exactly this order.
   ##
   ## 1. WIPE — a team with no cog alive and no lives left loses on the spot,
@@ -3871,7 +3871,7 @@ proc resetToLobby*(sim: var SimServer) =
   ## with the roster already emptied above: no one is left to be engulfed, so
   ## the displacement pass this returns true for has nothing to do.)
   if sim.config.numAgents > 0:
-    ## A paintball EPISODE is two games, and the replay codec stops parsing at
+    ## A particle-worlds EPISODE is four rounds, and the replay codec stops parsing at
     ## the first non-increasing tick hash (ReplaySpec.hashOrder = rhoStop). So
     ## the tick clock must stay MONOTONIC across the games: rewinding it here
     ## truncated the recording at game one and threw the whole visitor half —

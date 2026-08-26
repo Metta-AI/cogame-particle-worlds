@@ -11,7 +11,7 @@
 // script tag, so it must never contain the literal splice marker or a script
 // close tag):
 //  - native server: staticRead + spliced over the CHROME_COMMON marker in
-//    both embedded pages (src/mpe/server.nim);
+//    both embedded pages (src/ctf/server.nim);
 //  - static WASM bundle: copied into dist/ and loaded via a script src
 //    (Dockerfile.replay-viewer sed's the marker);
 //  - raw file:// opens of the source HTML have NO splice — the pages guard the
@@ -145,7 +145,7 @@ window.ChromeCommon = function (ctx) {
   function teamName(s, team, fallback) {
     // The scorebug headline is the POLICY name, not the color (the plate color +
     // board already say which side is which). In a hosted league a side seats
-    // one policy — show it — or, in MPE-Doubles, exactly two: headline BOTH
+    // one policy — show it — or, in CTF-Doubles, exactly two: headline BOTH
     // ("A + B"). Local self-play seats a distinct bot per seat (3+ "policies"),
     // which carries no shared identity, so fall back to the color label rather
     // than pinning the team to one arbitrary bot.
@@ -311,7 +311,7 @@ window.ChromeCommon = function (ctx) {
     // meter is its squad-pip strip). Single policy (or pre-roster): the
     // classic "Lives N" team meter with the badges beyond the numeral, and
     // the el gains class `single` so a page may mirror that one case.
-    // MPE-Doubles (exactly two policies): one meter per policy in the
+    // CTF-Doubles (exactly two policies): one meter per policy in the
     // headline's policy order, fixed DOM order `icons,num | num,icons`, so
     // the two numerals sit adjacent at the cluster's center with each
     // policy's badges flanking outside its own numeral — no side-dependent

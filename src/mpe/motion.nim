@@ -86,18 +86,27 @@ proc resolveBumps*(sim: var SimServer): seq[tuple[a, b: int]] =
     reach = max(0, sim.config.bumpPx)
     reachSq = reach * reach
     seats = min(4, sim.players.len)
+  var touching: array[4, bool]
   for a in 0 ..< seats:
     let (ax, ay) = sim.particleCentreOf(a)
     for b in a + 1 ..< seats:
       let (bx, by) = sim.particleCentreOf(b)
       if distSq(ax, ay, bx, by) > reachSq:
         continue
-      inc sim.bumps[a]
-      inc sim.bumps[b]
+      touching[a] = true
+      touching[b] = true
       let pair = bumpPairIndex(a, b)
       if sim.tickCount - sim.lastBumpTick[pair] >= BumpEventThrottleTicks:
         sim.lastBumpTick[pair] = sim.tickCount
         result.add((a, b))
+  ## ONE bump tick per seat per tick, exactly as the design's formula reads
+  ## ("bumps[s] += 1 for each TICK in which s is within bumpPx of any other
+  ## agent"), not one per pair: a seat wedged between the other three would
+  ## otherwise accrue three ticks a tick and blow the sim guard's own
+  ## `bumps[s] <= tickCount` invariant.
+  for seat in 0 ..< seats:
+    if touching[seat]:
+      inc sim.bumps[seat]
 
 proc bumpPairsThisTick*(sim: SimServer): seq[tuple[a, b: int]] =
   ## The unordered pairs touching RIGHT NOW, as a read-only query for the

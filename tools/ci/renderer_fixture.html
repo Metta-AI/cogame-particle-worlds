@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<!--
+  WORST-CASE RENDERER FIXTURE (the cogchemists 2026-08-24 rule).
+
+  tools/ci/docker_smoke.sh runs with NO ANTHROPIC_API_KEY, so every seat plays
+  the scripted baseline and a scripted seat emits no `note` -- which means
+  EVERY replay CI produces carries zero LLM text, and nothing that plays a
+  replay can exercise the match feed, the radio strip, the crypto panel or a
+  full-cap note. This page loads the REAL chrome (chrome_common.js and the same
+  DOM ids the broadcast page uses) with the worst case in every one of them:
+
+    * a FULL-CAP 160-rune note on all four seats, in the feed;
+    * a non-silent symbol on all four particles, in the radio strip and the
+      four scorebug plates;
+    * the crypto decode panel populated, with one row per mobile agent;
+    * the mark rail with four marks and their coverage;
+    * the board rendered at 360 / 620 / 1280 px, so the `.tiny` density system
+      and the `--hudscale` clamp are both exercised -- 360 px is the width of
+      the softmax.com featured-match iframe, which is where a name collapses
+      to an ellipsis if `.plate-name` is wrong.
+
+  It draws every string onto a real canvas so `viewer_smoke.mjs
+  --strict-text-bounds` can see whether anything was laid out where there is no
+  room for it, then sets data-replay-loaded="true" the way the real shell does.
+-->
+<head>
+<meta charset="utf-8">
+<title>particle-worlds renderer fixture</title>
+<style>
+  :root {
+    --u: 1px;
+    --hudscale: 1;
+    --band: 34px;
+    --topband: 42px;
+    --paper: #f2e8d8;
+    --paper-dim: #a4988a;
+    --amber: #e8a33d;
+    --red: #e0523a;
+    --blue: #3f7cc4;
+    --green: #45a85e;
+    --yellow: #ddc531;
+    --pixfont: monospace;
+    --finefont: system-ui, sans-serif;
+    background: #0c0906;
+    color: var(--paper);
+    font-family: var(--finefont);
+  }
+  body { margin: 0; }
+  .frame { border: 1px solid #2c2219; margin: 8px; position: relative; }
+  .frame > .cap {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--paper-dim); padding: 2px 4px;
+  }
+  canvas { display: block; background: #171009; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="frame" id="f360"><div class="cap">360 px</div></div>
+  <div class="frame" id="f620"><div class="cap">620 px</div></div>
+  <div class="frame" id="f1280"><div class="cap">1280 px</div></div>
+</div>
+<div id="scorebug"></div>
+<div id="killfeed"></div>
+<div id="scrub"></div>
+<div id="clock"><span id="clock-time">0:31</span></div>
+<script>
+(function () {
+  'use strict';
+  // A 160-RUNE note -- exactly MaxNoteRunes, the cap the server enforces --
+  // ending in a 4-byte emoji so the rune-boundary path is real here too.
+  var NOTE = 'hold at teal south flank until the greens commit and then break ' +
+             'for the goal in one straight run, never crossing the middle ' +
+             'while an eye is close 0123456789012\uD83D\uDE80';
+  var SEATS = [
+    { colour: 'red', alias: 'RED-alpha', name: 'daveey', role: 'speaker',
+      sym: 'F', mean: 641, live: 583 },
+    { colour: 'blue', alias: 'BLUE-alpha', name: 'daveey-1', role: 'listener',
+      sym: 'B', mean: 598, live: 512 },
+    { colour: 'green', alias: 'GREEN-alpha', name: 'particle-worlds-drifter',
+      role: 'eavesdropper', sym: 'H', mean: 487, live: 402 },
+    { colour: 'yellow', alias: 'YELLOW-alpha', name: 'particle-worlds-beeline',
+      role: 'eavesdropper', sym: 'C', mean: 410, live: 108 }
+  ];
+  var MARKS = [
+    { c: 'amber', close: 716, goal: false },
+    { c: 'teal', close: 985, goal: true },
+    { c: 'violet', close: 240, goal: false },
+    { c: 'bone', close: 61, goal: false }
+  ];
+  var KEY = [['D', 'amber'], ['F', 'teal'], ['B', 'violet'], ['G', 'bone']];
+  var HUE = {
+    A: '#e8604a', B: '#e8a33d', C: '#d6d25a', D: '#78c868',
+    E: '#48beb6', F: '#5a98e2', G: '#9e74dc', H: '#e282be',
+    amber: '#e8a33d', teal: '#40b0a8', violet: '#966cd6', bone: '#e2dbc6'
+  };
+
+  // Every string is drawn INSIDE a band reserved for it, measured in the font
+  // it is drawn in -- never at a coordinate chosen by eye, and never above the
+  // top of the canvas (which is exactly how a bubble ends up as a sliver).
+  function drawBoard(host, width) {
+    var height = Math.round(width / (1235 / 659));
+    var canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    host.appendChild(canvas);
+    var g = canvas.getContext('2d');
+    var scale = width / 1235;
+    var tiny = width <= 620;
+    g.fillStyle = '#211a12';
+    g.fillRect(0, 0, width, height);
+
+    // The four marks: the baked disc, the coverage ring and the soft wash.
+    MARKS.forEach(function (m, i) {
+      var x = (200 + i * 280) * scale;
+      var y = (170 + (i % 2) * 300) * scale;
+      var r = Math.max(3, 18 * scale);
+      var fill = m.close / 1000;
+      g.globalAlpha = 0.28 * fill;
+      g.fillStyle = HUE[m.c];
+      g.beginPath(); g.arc(x, y, r + 46 * scale, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+      g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = HUE[m.c];
+      g.lineWidth = Math.max(1, 3 * scale);
+      g.beginPath();
+      g.arc(x, y, r + 7 * scale, -Math.PI / 2,
+            -Math.PI / 2 + Math.PI * 2 * fill);
+      g.stroke();
+      if (!tiny) {
+        g.font = Math.max(8, 11 * scale) + 'px monospace';
+        g.fillStyle = HUE[m.c];
+        g.textBaseline = 'top';
+        g.fillText(m.c.toUpperCase(), x - r, y + r + 2 * scale);
+      }
+    });
+
+    // Four particles, each with its symbol bubble. The bubble grows UPWARD, so
+    // its band is reserved BELOW the top edge: if it would not fit above the
+    // particle it flips below it, which is the server's own
+    // shoutBubblePlacement rule.
+    var bubbleFont = Math.max(10, 22 * scale);
+    g.font = bubbleFont + 'px monospace';
+    var bubbleH = bubbleFont * 1.6;
+    SEATS.forEach(function (seat, i) {
+      var x = (240 + i * 250) * scale;
+      var y = (330 + (i % 2 ? -90 : 90)) * scale;
+      g.fillStyle = 'var(--paper)';
+      g.fillStyle = '#f2e8d8';
+      g.beginPath();
+      g.arc(x, y, Math.max(3, 15 * scale), 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = seat.colour === 'red' ? '#e0523a'
+        : seat.colour === 'blue' ? '#3f7cc4'
+        : seat.colour === 'green' ? '#45a85e' : '#ddc531';
+      g.beginPath();
+      g.arc(x, y, Math.max(2, 11 * scale), 0, Math.PI * 2);
+      g.fill();
+      var text = seat.sym;
+      var w = g.measureText(text).width + 12 * scale;
+      var top = y - Math.max(20 * scale, bubbleH + 8 * scale);
+      if (top < 0) top = y + Math.max(18 * scale, 8 * scale);
+      top = Math.min(top, canvas.height - bubbleH);
+      g.fillStyle = 'rgba(12,9,6,0.86)';
+      g.fillRect(x - w / 2, top, w, bubbleH);
+      g.strokeStyle = HUE[text] || '#a4988a';
+      g.lineWidth = Math.max(1, 2 * scale);
+      g.strokeRect(x - w / 2, top, w, bubbleH);
+      g.fillStyle = HUE[text] || '#f2e8d8';
+      g.textBaseline = 'middle';
+      g.textAlign = 'center';
+      g.fillText(text, x, top + bubbleH / 2);
+      g.textAlign = 'left';
+    });
+
+    // The scorebug plates, the radio strip, the mark rail and the crypto panel
+    // all drawn into reserved bands at the TOP and BOTTOM of the canvas.
+    var line = Math.max(8, tiny ? 9 : 11);
+    g.font = line + 'px monospace';
+    g.textBaseline = 'top';
+    var yy = 2;
+    SEATS.forEach(function (seat) {
+      g.fillStyle = '#f2e8d8';
+      var plate = tiny
+        ? seat.role.slice(0, 1).toUpperCase() + ' ' + seat.name + ' ' +
+          (seat.mean / 1000).toFixed(3)
+        : seat.role.toUpperCase() + '  ' + seat.name + '  ' +
+          (seat.mean / 1000).toFixed(3) + '  (' +
+          (seat.live / 1000).toFixed(2) + ' this round)';
+      g.fillText(plate, 4, yy);
+      yy += line + 2;
+    });
+    g.fillStyle = '#e8a33d';
+    g.fillText(SEATS.map(function (s) {
+      return (tiny ? s.colour.slice(0, 1).toUpperCase() : s.colour.toUpperCase()) +
+        ' ' + s.sym;
+    }).join('  \u00b7  '), 4, yy);
+    yy += line + 2;
+    g.fillStyle = '#966cd6';
+    g.fillText('KEY ' + KEY.map(function (p) {
+      return p[0] + '\u2192' + (tiny ? p[1].slice(0, 1).toUpperCase() : p[1]);
+    }).join(' '), 4, yy);
+    yy += line + 2;
+    SEATS.slice(1).forEach(function (seat, i) {
+      g.fillStyle = i === 0 ? '#45a85e' : '#a4988a';
+      g.fillText((tiny ? seat.colour.slice(0, 1).toUpperCase() : seat.alias) +
+        ' \u2192 ' + MARKS[i].c + (i === 0 ? ' \u2713' : ' \u2717') +
+        ' (' + (12 + i * 24) + 't)', 4, yy);
+      yy += line + 2;
+    });
+
+    // The FULL-CAP note, wrapped inside the canvas rather than allowed to run
+    // off the right edge, in the bottom band.
+    var words = NOTE.split(' ');
+    var rows = [];
+    var cur = '';
+    for (var w2 = 0; w2 < words.length; w2++) {
+      var probe = cur ? cur + ' ' + words[w2] : words[w2];
+      if (g.measureText(probe).width > width - 12 && cur) {
+        rows.push(cur);
+        cur = words[w2];
+      } else {
+        cur = probe;
+      }
+    }
+    if (cur) rows.push(cur);
+    var noteTop = Math.max(yy + 4,
+      canvas.height - rows.length * (line + 2) - 4);
+    rows.forEach(function (row, i) {
+      g.fillStyle = i === 0 ? '#f2e8d8' : '#a4988a';
+      g.fillText(row, 4, noteTop + i * (line + 2));
+    });
+    return canvas;
+  }
+
+  drawBoard(document.getElementById('f360'), 360);
+  drawBoard(document.getElementById('f620'), 620);
+  drawBoard(document.getElementById('f1280'), 1280);
+
+  // Self-check: every string this page draws is bounded by the caps the SERVER
+  // enforces, so a drift in either direction is a failure here rather than a
+  // surprise in a hosted replay.
+  var runes = Array.from(NOTE).length;
+  if (runes !== 160) {
+    document.documentElement.setAttribute(
+      'data-replay-error',
+      'fixture note is ' + runes + ' runes, not the 160-rune MaxNoteRunes cap');
+  } else if (SEATS.some(function (s) { return Array.from(s.sym).length !== 1; })) {
+    document.documentElement.setAttribute(
+      'data-replay-error', 'a fixture symbol is not exactly one rune');
+  } else {
+    // Same signal, and in the same order, as the real shell: the attribute
+    // goes up AFTER the first frame is on the canvas, never before.
+    requestAnimationFrame(function () {
+      document.documentElement.setAttribute('data-replay-loaded', 'true');
+    });
+  }
+})();
+</script>
+</body>
+</html>

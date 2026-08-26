@@ -360,7 +360,7 @@ proc applyReplayEvents(replay: var ReplayPlayer, sim: var SimServer) =
       raise newException(ReplayError, "Replay player leave is invalid")
     sim.removePlayerAt(int(leave.player))
     if sim.config.numAgents > 0:
-      ## Paintball: a leave does NOT shift the mask arrays. The cogs are fixed
+      ## Particle worlds: a leave does NOT shift the mask arrays. The cogs are fixed
       ## for the whole episode and the recorded masks are indexed BY COG, so
       ## deleting a row would silently re-point every mask after it at the
       ## wrong cog for the rest of playback. The roster entry goes; the cog
@@ -402,7 +402,7 @@ proc applyReplayEvents(replay: var ReplayPlayer, sim: var SimServer) =
   while replay.chatIndex < replay.data.chats.len and
       replay.data.chats[replay.chatIndex].time <= time:
     let chat = replay.data.chats[replay.chatIndex]
-    # Paintball CONTROL records (register / directive / fallback /
+    # CONTROL records (register / directive / fallback /
     # budget_guard / result) ride the chat stream as JSON objects and are
     # NOT shouts: the live server never applied them as shouts either, so
     # applying them here would move the hash chain. Everything else is a
@@ -548,7 +548,7 @@ proc scanTeamLead(sim: SimServer): seq[int] =
   ##
   ## KotH (hill on): the CUMULATIVE hill-tick count — the archived totals of
   ## the games already finished plus this game's running count. With
-  ## `lives: 12` a paintball series of lives is near-flat and shows tag
+  ## `lives: 12` a particle-worlds series of lives is near-flat and shows tag
   ## attrition, not hill momentum, and the hill-tick difference over the
   ## whole episode is the thing a KotH spectator is watching.
   if sim.config.numAgents > 0:

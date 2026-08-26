@@ -152,7 +152,7 @@ const
   # PiP's fallback, but an overhead projection in an eye-level view reads as a
   # flat plate with the face squashed onto its lower lip, so the front masters
   # are what the billboard actually wants.
-  # ...and the same cogs holding their paintball marker forward at the camera.
+  # ...and the same cogs holding their particle-worlds marker forward at the camera.
   # A live cog always carries its gun, so this is the pose the PiP shows for any
   # armed cog; the empty-handed masters cover the unarmed read. One entry per
   # team x {top-down, front, front_gun}, served by path lookup.
@@ -181,7 +181,7 @@ const
   # Hosted replay closes any WS frame larger than 1 MiB (sends 1009). We chunk
   # outbound sprite packets under a margin below that so no single frame trips it.
   MaxWsFrameBytes* = 900_000
-  ShutdownGraceSeconds = 20  ## paintball squad mode: /healthz + /global keep
+  ShutdownGraceSeconds = 20  ## particle seat mode: /healthz + /global keep
                              ## answering this long after the artifacts are
                              ## written, then the process exits.
   # SpriteClientReady (0x85) and SpriteClientDebugSprite (0x86) now come from
@@ -1357,7 +1357,7 @@ proc runServerLoop*(
   )
   httpServer.waitUntilReady()
 
-  # --- paintball squad mode -------------------------------------------------
+  # --- particle seat mode -------------------------------------------------
   # `num_agents` seats drive `num_agents * cogsPerTeam` cogs. The seats join
   # exactly as the starter's players do (slots 0..num_agents-1, token-checked);
   # once they are all in, the server fills the rest of the squads with trusted
@@ -1404,7 +1404,7 @@ proc runServerLoop*(
 
     # The engine's own hard stop, checked before anything else this
     # iteration: `wallClockBudgetSeconds` is 57.5% of the assumed 1200 s
-    # episodeTimeoutSeconds, so paintball always settles and scores itself
+    # episodeTimeoutSeconds, so particle-worlds always settles and scores itself
     # rather than being silently discarded for overrunning.
     if squadMode and not deadlineHit and
         (getMonoTime() - episodeStart).inSeconds.int >=
@@ -1727,7 +1727,7 @@ proc runServerLoop*(
           # can arrive while its player index is still 0x7fffffff. Clearing the
           # table then discarded them for good and the champion played the
           # scripted drifter baseline for the whole episode with no `register`
-          # record at all (paintball round 3, 2026-08-25: "player connected:
+          # record at all (the paintbot round-3 scar: "player connected:
           # daveey-1" first, then only "seat 0 registered" twice). Bounded by
           # construction: one entry per live socket, dropped with the socket.
           var heldRegistrations: seq[(WebSocket, string)] = @[]
@@ -1922,7 +1922,7 @@ proc runServerLoop*(
       continue
 
     # ------------------------------------------------------------------
-    #  PAINTBALL: the decision turn, then the control-compiled actuator
+    #  PARTICLE WORLDS: the decision turn, then the control-compiled actuator
     #  masks. This is the determinism boundary — the control layer and the
     #  LLM live on THIS side of it, and only the masks below are recorded,
     #  so the wasm viewer re-derives the whole match from them without ever
@@ -2030,7 +2030,7 @@ proc runServerLoop*(
       for _ in 0 ..< playbackSpeed(liveSpeedIndex):
         let phaseBeforeStep = sim.phase
         stepPrevInputs.clearPressedInputMasks(stepPressedInputMasks)
-        # The paintball `fault` end conditions (design §End conditions rows 5
+        # The particle-worlds `fault` end conditions (design §End conditions rows 5
         # and 6). A tripped sim invariant or any other exception out of the
         # tick is NOT a silent non-zero exit there: the episode ends here,
         # both seats score 0.500 (roster.playerResultsJson's fault branch),
@@ -2043,13 +2043,13 @@ proc runServerLoop*(
         except SimGuardError as guard:
           if not squadMode:
             raise
-          echo "paintball: SIM GUARD tripped at tick ", sim.tickCount, ": ",
+          echo "particle-worlds: SIM GUARD tripped at tick ", sim.tickCount, ": ",
             guard.msg
           faultRule = EndRuleSimFault
         except CatchableError as error:
           if not squadMode:
             raise
-          echo "paintball: HOST ERROR at tick ", sim.tickCount, ": ",
+          echo "particle-worlds: HOST ERROR at tick ", sim.tickCount, ": ",
             error.msg
           faultRule = EndRuleHostError
         if faultRule.len > 0:
@@ -2240,7 +2240,7 @@ proc runServerLoop*(
       if squadMode:
         # The `result` control record: the full results document, written once
         # into the replay chat stream at episode end (docs/PROTOCOL.md record
-        # table), so a paintball replay is self-sufficient — the outcome would
+        # table), so a particle-worlds replay is self-sufficient — the outcome would
         # otherwise live only at COGAME_RESULTS_URI, which a spectator with
         # the bytes cannot read. Never applied as a shout at playback (a
         # leading '{' marks a control record in squad mode), so the hash chain

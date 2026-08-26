@@ -91,6 +91,16 @@ proc parseSymbol*(text: string): int =
       return i + 1
   0
 
+proc symbolIndexOfText*(text: string): int =
+  ## The symbol index of one EXACT wire text ("A".."H"), 0 for anything else.
+  ## Distinct from `parseSymbol`, which is the tolerant model-reply path.
+  if text.len != 1:
+    return 0
+  for i in 0 ..< SymbolAlphabet.len:
+    if SymbolAlphabet[i] == text[0]:
+      return i + 1
+  0
+
 proc symbolTextOf*(index: int): string =
   ## The wire text of one symbol index: 0 is silence ("-"), 1..8 are A..H.
   if index <= 0 or index > SymbolAlphabet.len:

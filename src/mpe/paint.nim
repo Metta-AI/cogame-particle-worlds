@@ -1,4 +1,4 @@
-## The paintball floor-paint grid, the paint buff, and King of the Hill.
+## The particle-worlds floor-paint grid, the paint buff, and King of the Hill.
 ##
 ## Everything in this module is HASHED state: it is re-derived tick for tick by
 ## the wasm replay viewer from the recorded input masks, so every line of

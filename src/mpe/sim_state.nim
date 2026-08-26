@@ -173,7 +173,7 @@ proc gameHash*(sim: SimServer): uint64 =
     result.mixHashInt(sim.barrageAccum)
   result.mixHashBool(sim.isDraw)
   if sim.config.numAgents == 0:
-    ## In a seat-commanded (paintball) episode `needsReregister` is live-server
+    ## In a seat-commanded (particle-worlds) episode `needsReregister` is live-server
     ## lobby plumbing: resetToLobby raises it and the SERVER lowers it as part
     ## of re-seating the roster between the episode's games, and re-seating is
     ## not a recorded event — a replay cannot re-derive the lowering, so the
@@ -251,7 +251,7 @@ proc gameHash*(sim: SimServer): uint64 =
     result.mixHashInt(grenade.launchTick)
     result.mixHashInt(grenade.flightTicks)
     result.mixHashInt(grenade.thrower)
-  # --- paintball state, APPENDED after every existing mix so the ordering of
+  # --- particle-worlds state, APPENDED after every existing mix so the ordering of
   # the inherited fields stays stable. All of it is gameplay state the wasm
   # viewer re-derives from the recorded masks, so all of it is hashed:
   # paintOwner (eight tiles at a time as a uint64 word), the hill counters,

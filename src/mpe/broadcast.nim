@@ -267,7 +267,7 @@ proc stepEvents*(
         "mode": $entry.mode, "permille": permille
       })
 
-  # NEW (paintball): hill ownership changes, banked-second ticks and the
+  # NEW (particle worlds): hill ownership changes, banked-second ticks and the
   # paint each team laid since the previous step. Derived from state deltas,
   # so they cost no replay bytes and read identically live and in replay.
   if sim.config.hill:
@@ -307,7 +307,7 @@ proc stepEvents*(
           "hillTiles": sim.hillPaint[team]
         })
 
-  # NEW (paintball): the three per-cog beats the design note's vocabulary
+  # NEW (particle worlds): the three per-cog beats the design note's vocabulary
   # names and the derived stream was missing. All three are state deltas, so
   # they cost no replay bytes and read identically live and in replay:
   #   spray — a burst left the can (arcTicksLeft went 0 -> alive)
@@ -373,7 +373,7 @@ proc stepEvents*(
         event["trade"] = %sim.slotOf(partner)
       events.add(event)
       if sim.config.numAgents > 0:
-        # Paintball: nobody dies here — a cog is TAGGED OUT for two
+        # Particle worlds: nobody dies here — a cog is TAGGED OUT for two
         # seconds. The scrubber beat and the feed row read that way, and the
         # beat is coloured by the victim's team so the timeline shows which
         # squad is losing bodies.
@@ -431,7 +431,7 @@ proc stepEvents*(
 
 proc teamPoliciesJson(sim: SimServer, team: Team): JsonNode =
   ## The distinct policy identities seated on one team, in join-slot order.
-  ## One entry per policy — a mixed team (PAINTBALL-Doubles: two policies per side)
+  ## One entry per policy — a mixed team (PARTICLE WORLDS-Doubles: two policies per side)
   ## lists both, so the client can headline and group the roster by policy
   ## instead of collapsing a mixed team to its color.
   result = newJArray()
@@ -479,16 +479,24 @@ proc teamStateJson(sim: SimServer, team: Team): JsonNode =
     "prog": sim.flagCarryProgress(team),
     "policies": sim.teamPoliciesJson(team)
   }
-  if sim.config.hill:
-    # --- paintball scorebug fields (absent on classic wire frames) ---
-    result["hill"] = %sim.hillTicks[team]                ## banked hill TICKS
-    result["held"] = %(sim.hillTicks[team] div TargetFps)  ## banked SECONDS
-    result["cov"] = %sim.hillCoveragePct(team)  ## live hill coverage percent
-    result["own"] = %(sim.hillOwned and sim.hillOwner == team)
-    result["tags"] = %tags
-    result["tagsTaken"] = %tagsTaken
-    result["cogs"] = %cogsUp
-    result["paint"] = %sim.paintCount[team]
+  if sim.config.numAgents > 0:
+    # --- the particle-worlds scorebug fields. One team is one SEAT here
+    # (teams 4, cogsPerTeam 1), so this is the seat's plate: its role for this
+    # round, its episode score so far, its live round permille, and its bump
+    # count. Absent on classic wire frames.
+    let
+      seat = ord(team)
+      elapsed = max(1, sim.gameTicksElapsed())
+    if seat < min(4, sim.players.len):
+      result["seat"] = %seat
+      result["role"] = %roleName(sim.mode, sim.roleIndex[seat])
+      result["mean"] = %sim.episodePermille(seat)
+      result["live"] = %(
+        if sim.mode == modeTag: sim.tagRoundPermille(seat, elapsed)
+        else: clamp(int(sim.roundAccum[seat] div elapsed), 0, 1000))
+      result["bumps"] = %sim.bumps[seat]
+      result["sym"] = %symbolText(sim.commSymbol[seat])
+      result["anchored"] = %sim.isAnchored(seat)
   # Per-team handicap for the scorebug badge + its hover breakdown. Present only
   # when the team is actually handicapped, so an unhandicapped team shows no
   # badge. The resolved deltas are computed here (the one place the
@@ -679,7 +687,7 @@ proc firstPersonJson(sim: SimServer, playerIndex: int): JsonNode =
       cols.add(%hit)
 
   var ents = newJArray()
-  # Paintball beams the seat can see (filled below, only while alive — a ghost's
+  # Particle worlds beams the seat can see (filled below, only while alive — a ghost's
   # inset is walls-only). Declared here so the frame assembly can read it.
   var shots = newJArray()
   proc addEnt(
@@ -760,7 +768,7 @@ proc firstPersonJson(sim: SimServer, playerIndex: int): JsonNode =
     for sp in sim.sprayPaintSpawns: addPickup("spray", sp)
     for sp in sim.barrierSpawns: addPickup("barrier", sp)
 
-    # --- paintball beams in flight (sim.recentShots; cosmetic, never hashed) ---
+    # --- particle-worlds beams in flight (sim.recentShots; cosmetic, never hashed) ---
     # A hitscan shot has no travelling body, so the board draws it as a COMET: a
     # bright paint head at the impact end with a thin trail fading back to the
     # muzzle (global.nim TracerStages/TrailFalloff/MissStagePenalty). The PiP

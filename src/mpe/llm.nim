@@ -1,15 +1,16 @@
-## Claude-backed squad command. A policy is just a prompt: the game server
-## composes the seat's fogged view plus that seat's PLAYER_PROMPT and asks
-## Claude what its cogs do for the next 4.5 seconds.
+## Claude-backed particle command. A policy is just a prompt: the game server
+## composes the seat's view plus that seat's PLAYER_PROMPT and asks Claude what
+## its particle does for the next 4.5 seconds.
 ##
 ## Ported from `cogame-bullwhip/src/bullwhip/llm.nim`, behaviour for
 ## behaviour — the credential ladder, the Bedrock model rotation, the
 ## fence-tolerant JSON extraction and the rune-boundary truncation are all
 ## that file's, because they are all scar tissue from real hosted failures.
 ##
-## Paintball is a SIMULTANEOUS-decision game, so both seats' calls go out as
-## ONE parallel batch per turn (`curly.makeRequests`). Seats are never queried
-## sequentially: that is what keeps 40 turns inside the wall-clock budget.
+## Particle worlds is a SIMULTANEOUS-decision game, so ALL FOUR seats' calls go
+## out as ONE parallel batch per turn (`curly.makeRequests`). Seats are never
+## queried sequentially: that is what keeps 40 turns inside the wall-clock
+## budget.
 ##
 ## Credentials, in order of preference:
 ##   Bedrock sidecar (AWS_ENDPOINT_URL_BEDROCK_RUNTIME + AWS_BEARER_TOKEN_BEDROCK)
@@ -50,7 +51,7 @@ type
       ## rotate to. Set per turn, cleared by the turn loop: retrying inside
       ## the same turn cannot succeed, so the seat fails fast to the scripted
       ## fallback instead of spending the turn budget on a call that will be
-      ## refused again (paintball round 2, 2026-08-25).
+      ## refused again (the paintbot round-2 scar, inherited).
 
   LlmError* = object of ValueError
 
@@ -64,7 +65,7 @@ proc resolveApiKey(): string =
   try:
     result = readCogameUri(uri, "ANTHROPIC_API_KEY_URI").strip()
   except CatchableError as error:
-    echo "paintball llm: failed to fetch ANTHROPIC_API_KEY_URI: ", error.msg
+    echo "particle-worlds llm: failed to fetch ANTHROPIC_API_KEY_URI: ", error.msg
     result = ""
 
 proc bedrockModelIds(): seq[string] =
@@ -74,8 +75,7 @@ proc bedrockModelIds(): seq[string] =
   ##
   ## `us.anthropic.claude-sonnet-4-6` was never a candidate (cogame-raid round
   ## 2, 2026-08-23) and `us.anthropic.claude-sonnet-4-5-20250929-v1:0` is not
-  ## one either: it was the ladder fallback for paintball 0.1.2 and the hosted
-  ## round-2 game log recorded 133 calls to it, every single one returning
+  ## one either: it was the ladder fallback for paintbot 0.1.2 and the hosted round-2 game log recorded 133 calls to it, every single one returning
   ## "Timeout was reached" and none returning text. One haiku throttle then
   ## cascaded into a whole episode of scripted fallbacks — the retry is what
   ## burned the turn, not the throttle. With no second candidate a throttle
@@ -91,7 +91,7 @@ proc tryNextBedrockModel(client: LlmClient, why: string): bool =
       client.bedrockModel + 1 >= client.bedrockModels.len:
     return false
   client.bedrockModel.inc
-  echo "paintball llm: ", client.bedrockModels[client.bedrockModel - 1],
+  echo "particle-worlds llm: ", client.bedrockModels[client.bedrockModel - 1],
     " unusable (", why, "); falling back to ",
     client.bedrockModels[client.bedrockModel]
   true
@@ -119,20 +119,20 @@ proc newLlmClient*(config: GameConfig): LlmClient =
     result.bedrockModels = bedrockModelIds()
     result.bedrockToken = bedrockToken
     result.curl = newCurly()
-    echo "paintball llm: bedrock transport, model ",
+    echo "particle-worlds llm: bedrock transport, model ",
       result.bedrockModels[result.bedrockModel]
     return
   result.apiKey = resolveApiKey()
   if result.apiKey.len > 0:
     result.transport = ltAnthropic
     result.curl = newCurly()
-    echo "paintball llm: anthropic transport, model ", result.model
+    echo "particle-worlds llm: anthropic transport, model ", result.model
   else:
     result.transport = ltNone
     result.disabled = true
     ## The exact phrase phase 60 greps the GAME log for, alongside "falling
     ## back" below: "LLM provider is unavailable".
-    echo "paintball llm: no credentials — the LLM provider is unavailable; ",
+    echo "particle-worlds llm: no credentials — the LLM provider is unavailable; ",
       "every turn is falling back to the scripted layer"
 
 proc requestFor*(

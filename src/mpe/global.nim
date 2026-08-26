@@ -417,7 +417,7 @@ const
                                ## auras at 19200).
   ## A hitscan shot's whole beam appears at once, so the tracer can't literally
   ## move — but it draws as a COMET (the shape that reads as a fired projectile
-  ## and is easiest to follow, per ux.replay research): a bright paintball HEAD
+  ## and is easiest to follow, per ux.replay research): a bright particle-worlds HEAD
   ## at the impact end with a thin trail fading behind it back toward the
   ## shooter, plus a small muzzle flash marking who fired. The eye locks onto
   ## the head and reads the shot's direction from the fade — never a fat tube.
@@ -453,7 +453,7 @@ const
   TracerHeadObjectBase = 16840  ## one leading head per drawn shot: 16840..16871.
                                 ## Moved off 16820 to make room for the
                                 ## widened muzzle blooms.
-  TracerHeadSize = 6           ## the bright leading paintball at the impact end.
+  TracerHeadSize = 6           ## the bright leading particle-worlds at the impact end.
   SplatterSpriteBase = 16000   ## per color-and-fade-stage splatter sprites: 16000..16063.
   SplatterObjectBase = 17000   ## splatter object-id pool base, above the tracer
                                ## ids: 17000..17063.
@@ -491,7 +491,7 @@ const
                                ## paint-tile pool below. Moved off 33000: the
                                ## widened tracer-dot pool (24000..35327)
                                ## swallowed it.
-  ## --- Paintball FLOOR PAINT (the tile grid) ---
+  ## --- Particle worlds FLOOR PAINT (the tile grid) ---
   ## The floor is not a decal pile any more: it is a fixed grid of owned
   ## tiles, so it renders as ONE object per tile, re-placed only when that
   ## tile's owner changes since this viewer's last frame. That makes a fully
@@ -513,7 +513,7 @@ const
   PaintTilePeakAlpha = 104.0   ## the stain compositor's own peak: paint the
                                ## floor reads THROUGH, never a colour swap.
   PaintTileZ = low(int16) + 2  ## floor decal, exactly where stains sit.
-  ## --- Paintball HILL overlay ---
+  ## --- Particle worlds HILL overlay ---
   ## Drawn server-side, in the sprite stream, so it appears identically live,
   ## in the native replay server and in the wasm bundle with no client-side
   ## board-geometry maths (broadcast_core.js stays byte-identical).
@@ -1857,7 +1857,7 @@ proc applyGlobalViewerMessage*(
         else:
           state.scrubbingReplay = false
     of SpriteClientChatMessage:
-      # Whole-string paintball-side commands are intercepted before the legacy
+      # Whole-string particle-worlds-side commands are intercepted before the legacy
       # char-by-char transport path, so a multi-digit tick or slot is never
       # mangled into speed keystrokes.
       if item.text.startsWith("s:"):
@@ -2316,7 +2316,7 @@ proc spraypaintPulseDiameter*(pulse, stage: int): int =
   max(10, int(round(float(slot) * SprayPuffOverlap)))
 
 ## --- Team-colored PAINT art: always tint from teamPaintRgba ---
-## Every paint visual below (spray mist, grenade blast, paintball tracer + head,
+## Every paint visual below (spray mist, grenade blast, particle-worlds tracer + head,
 ## on-hit splat, dried terrain stain, damage/KO pop) resolves its team color
 ## through `teamPaintRgba`, NOT `Palette[...]`. The 16-entry retro palette a
 ## sprite's `color: uint8` indexes has a blue slot (BlueTeamColor = 13) of
@@ -2375,7 +2375,7 @@ proc buildSpraypaintPulseSprite(
 
 proc buildBlastSprite(colorIndex, stage, size: int): seq[uint8] {.measure.} =
   ## The grenade landing: a BIG paint splat in the THROWER's team color — a
-  ## paint-bomb bursts, it doesn't flash white. Same wet-paintball language as
+  ## paint-bomb bursts, it doesn't flash white. Same wet-particle-worlds language as
   ## the on-hit splat (buildHitSparkSprite) but blast-sized (~2x the blast
   ## radius), with a ragged rim of flung droplets so it reads as a burst, a
   ## bright wet-sheen core, and a deep same-hue contour so it pops off the dark
@@ -2455,7 +2455,7 @@ proc buildBlastSprite(colorIndex, stage, size: int): seq[uint8] {.measure.} =
       )
 
 proc buildTracerDotSprite(colorIndex, stage, bucket: int): seq[uint8] {.measure.} =
-  ## Builds one thin trail blob of the comet's tail: a small round wet paintball
+  ## Builds one thin trail blob of the comet's tail: a small round wet particle-worlds
   ## in SATURATED team paint. Blobs are sampled at < their own size along the
   ## beam so they overlap into one thin continuous trail (not a dotted line),
   ## and the `bucket` bakes the along-beam fade — bucket 0 is the faint far tail
@@ -2502,7 +2502,7 @@ proc buildTracerDotSprite(colorIndex, stage, bucket: int): seq[uint8] {.measure.
 proc buildMuzzleBloomSprite(stage: int): seq[uint8] {.measure.} =
   ## Builds the subtle muzzle flash at a shot's ORIGIN: a soft warm-amber glow
   ## that marks where the gun fired. Deliberately DIM and never white-hot — the
-  ## bright leading paintball is the eye-anchor, and the flash must not read as
+  ## bright leading particle-worlds is the eye-anchor, and the flash must not read as
   ## a second ball; it just quietly tags the shooter. Fades by ALPHA over the
   ## shot's life so it puffs then dies.
   result = newRgbaPixels(MuzzleBloomSize, MuzzleBloomSize)
@@ -2598,7 +2598,7 @@ proc addHitFlashes(
     )
 
 proc buildTracerHeadSprite(colorIndex, stage: int): seq[uint8] {.measure.} =
-  ## Builds the bright LEADING paintball at a shot's IMPACT end — the comet's
+  ## Builds the bright LEADING particle-worlds at a shot's IMPACT end — the comet's
   ## head, the eye-anchor. Hotter than a trail dot (a wide white-hot core over a
   ## team-color rim) so it's the brightest thing on the beam and clearly points
   ## at the target it struck. Alpha fades by age stage like the trail, so head
@@ -2660,7 +2660,7 @@ proc buildSplatterSprite(colorIndex, stage: int): seq[uint8] {.measure.} =
         )
 
 proc buildHitSparkSprite(colorIndex, stage: int): seq[uint8] {.measure.} =
-  ## Builds the on-hit PAINT SPLAT left by a non-fatal hit (this is paintball,
+  ## Builds the on-hit PAINT SPLAT left by a non-fatal hit (this is particle-worlds,
   ## not blood). A wet, glossy blob of the SHOOTER's team paint — big enough
   ## (~player-sized) to read at a glance, flung droplets around the core so it
   ## reads unmistakably as a splat, a bright wet-sheen highlight, and a thin
@@ -4896,7 +4896,7 @@ proc addShotTracers(
 ) {.measure.} =
   ## Places each shot's tracer from fixed object pools as a COMET: a small
   ## colorless muzzle flash at the origin (who fired), a thin team-color trail
-  ## that fades back toward the shooter, and a bright leading paintball at the
+  ## that fades back toward the shooter, and a bright leading particle-worlds at the
   ## impact end (the eye-anchor pointing at the target). The along-beam fade is
   ## baked per trail dot via its bucket. A shot that HIT draws full-bright; a
   ## MISS draws pre-aged (its age stage advanced by MissStagePenalty) so the
@@ -5010,7 +5010,7 @@ proc addAimIndicators(
   packet: var seq[uint8],
   viewerIndex = -1
 ) {.measure.} =
-  ## Aim direction is now shown by the soldier's held paintball gun, which
+  ## Aim direction is now shown by the soldier's held particle-worlds gun, which
   ## sweeps with the aim angle in every view — so the old floating aim-dot line
   ## (a stand-in from before the soldier had a real gun) is retired. Kept as a
   ## no-op so the two call sites (broadcast + player POV) stay unchanged; the
@@ -7002,7 +7002,7 @@ proc buildSpriteProtocolUpdates*(
   # Permanent terrain paint: incremental (only stains this viewer lacks) and
   # intentionally NOT tracked in currentIds, so it persists like the map bands.
   sim.addPaintStains(nextState, result)
-  # NEW (paintball): the floor-paint grid (incremental, persistent) and the
+  # NEW (particle worlds): the floor-paint grid (incremental, persistent) and the
   # hill overlay. The board IS the readout — territory is legible at a glance
   # because the arena visibly changes colour as the game goes.
   sim.addSeatLandmarks(nextState.spriteDefs, currentIds, result)
