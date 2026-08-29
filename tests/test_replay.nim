@@ -472,6 +472,38 @@ suite "the replay":
     ## The embedded config JSON decodes strictly too.
     check summary["seed"].getInt() == FixtureSeed
 
+  test "the summary reads the header by its lengths, not by scanning it":
+    ## The header puts a u64 WALL-CLOCK stamp between the game version and the
+    ## config, so a stamp whose bytes happen to be ASCII '0'-'9' (or one of
+    ## latin-1's superscript digits, which Python's str.isdigit() also accepts)
+    ## used to stretch the version to "20", and a stamp carrying a '{' used to
+    ## swallow the config. Both were ~1-in-20 and ~1-in-256 per RECORDED
+    ## episode, i.e. a flake no fixed-seed episode could ever pin. This header
+    ## is hand-built with exactly those bytes in the stamp, so a scanning
+    ## reader fails it every run and a length-reading one cannot fail it.
+    proc u16le(v: int): string =
+      result = newString(2)
+      result[0] = chr(v and 0xff)
+      result[1] = chr((v shr 8) and 0xff)
+    proc lenPrefixed(text: string): string = u16le(text.len) & text
+
+    let
+      ## '0' then '{' then superscript two/three, then a digit: every trap at once.
+      stamp = "0{" & chr(0xB2) & chr(0xB3) & "9" & chr(0) & chr(0) & chr(0)
+      craftedConfig = """{"seed":679961,"num_agents":4,"players":[]}"""
+      crafted = "COWLDMPE" & u16le(1) & lenPrefixed("particle-worlds") &
+        lenPrefixed(GameVersion) & stamp & lenPrefixed(craftedConfig)
+      craftedPath = getTempDir() /
+        ("pw-hdr-" & $getCurrentProcessId() & ".bitreplay")
+    check stamp.len == 8
+    writeFile(craftedPath, crafted)
+    let crafted_summary = parseJson(execProcess(
+      findExe("python3"), args = ["tools/replay_summary.py", craftedPath],
+      env = nil, workingDir = repoRoot(), options = {}))
+    check crafted_summary["gameVersion"].getStr() == GameVersion
+    check crafted_summary["seed"].getInt() == FixtureSeed
+    removeFile(craftedPath)
+
   test "every directive record is <= MaxDirectiveRunes":
     let bytes = readFile(episode.path)
     var i = 0
