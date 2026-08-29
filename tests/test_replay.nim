@@ -472,6 +472,38 @@ suite "the replay":
     ## The embedded config JSON decodes strictly too.
     check summary["seed"].getInt() == FixtureSeed
 
+  test "the summary reads the header by its lengths, not by scanning it":
+    ## The header puts a u64 WALL-CLOCK stamp between the game version and the
+    ## config, so a stamp whose bytes happen to be ASCII '0'-'9' (or one of
+    ## latin-1's superscript digits, which Python's str.isdigit() also accepts)
+    ## used to stretch the version to "20", and a stamp carrying a '{' used to
+    ## swallow the config. Both were ~1-in-20 and ~1-in-256 per RECORDED
+    ## episode, i.e. a flake no fixed-seed episode could ever pin. This header
+    ## is hand-built with exactly those bytes in the stamp, so a scanning
+    ## reader fails it every run and a length-reading one cannot fail it.
+    proc u16le(v: int): string =
+      result = newString(2)
+      result[0] = chr(v and 0xff)
+      result[1] = chr((v shr 8) and 0xff)
+    proc lenPrefixed(text: string): string = u16le(text.len) & text
+
+    let
+      ## '0' then '{' then superscript two/three, then a digit: every trap at once.
+      stamp = "0{" & chr(0xB2) & chr(0xB3) & "9" & chr(0) & chr(0) & chr(0)
+      craftedConfig = """{"seed":679961,"num_agents":4,"players":[]}"""
+      crafted = "COWLDMPE" & u16le(1) & lenPrefixed("particle-worlds") &
+        lenPrefixed(GameVersion) & stamp & lenPrefixed(craftedConfig)
+      craftedPath = getTempDir() /
+        ("pw-hdr-" & $getCurrentProcessId() & ".bitreplay")
+    check stamp.len == 8
+    writeFile(craftedPath, crafted)
+    let crafted_summary = parseJson(execProcess(
+      findExe("python3"), args = ["tools/replay_summary.py", craftedPath],
+      env = nil, workingDir = repoRoot(), options = {}))
+    check crafted_summary["gameVersion"].getStr() == GameVersion
+    check crafted_summary["seed"].getInt() == FixtureSeed
+    removeFile(craftedPath)
+
   test "every directive record is <= MaxDirectiveRunes":
     let bytes = readFile(episode.path)
     var i = 0
@@ -498,6 +530,45 @@ suite "the replay":
 
   test "the recorded replay stays well under a megabyte":
     check getFileSize(episode.path) < 1_000_000
+
+  test "half speed is a replay-only crawl":
+    ## The fleet-wide 1/2x replay speed: command '5' selects
+    ## ReplayHalfSpeedIndex, the chrome shows 0.5, and the step budget spends
+    ## one tick every OTHER frame (halfPhase parity) outside lulls.
+    var
+      sim = seatedSim(fixtureConfig())
+      replay = ReplayPlayer()
+    replay.speedIndex = 0
+    ## Through the PUBLIC command path the speed chip drives: a '5' that the
+    ## dispatch set forgot would leave the chip inert.
+    replay.applyReplayCommand(sim, '5')
+    check replay.speedIndex == ReplayHalfSpeedIndex
+    check replay.replayDisplaySpeed() == 0.5
+    ## The integer speed clamps to 1x at 1/2x, so the live loop (which shares
+    ## applySpeedCommand) can never be handed a zero or negative step count.
+    check replay.replaySpeed() == 1
+    check playbackSpeed(replay.speedIndex) == 1
+    replay.skipLulls = false
+    replay.halfPhase = false
+    check replay.replayStepBudget(0) == 0
+    replay.halfPhase = true
+    check replay.replayStepBudget(0) == 1
+    ## 1/2x is the bottom of the ladder, and '+' climbs straight back to 1x.
+    applySpeedCommand(replay.speedIndex, '+')
+    check replay.speedIndex == 0
+    applySpeedCommand(replay.speedIndex, '-')
+    check replay.speedIndex == ReplayHalfSpeedIndex
+    applySpeedCommand(replay.speedIndex, '-')
+    check replay.speedIndex == ReplayHalfSpeedIndex
+
+  test "the league shell forwards Space down the command channel":
+    ## keydown never crosses the iframe boundary, so the shell has to relay
+    ## play/pause itself; the board page binds Space directly.
+    let shell = sourceOf("client/league_replayer.html")
+    check "ev.key===' '" in shell
+    check "sendCmd(' ')" in shell
+    check "if (k === ' ') { ev.preventDefault(); togglePlay(); }" in
+      sourceOf("client/replay_broadcast.html")
 
   test "cleanup":
     removeFile(episode.path)

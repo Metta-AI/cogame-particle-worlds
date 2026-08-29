@@ -37,6 +37,11 @@ type
     playing*: bool
     looping*: bool
     speedIndex*: int
+      ## Index into PlaybackSpeeds, or ReplayHalfSpeedIndex (-1) for the
+      ## replay-only 1/2x speed (one sim tick every other frame).
+    halfPhase*: bool
+      ## Frame parity while at 1/2x speed: ticks advance only on the odd
+      ## frames, toggled once per advanceReplayPlayback frame.
     mismatchQuit*: bool
     hashValidationFailed*: bool
     hashMismatchTick*: int
@@ -123,6 +128,9 @@ type
 export PlaybackSpeeds
 
 const
+  ReplayHalfSpeedIndex* = -1
+    ## speedIndex sentinel for 1/2x playback: one sim tick every other frame.
+    ## Replay-only — the live loop clamps it back to PlaybackSpeeds[0] (1x).
   ReplayKeyframeTicks* = 100
   ReplayEndHoldSeconds* = 10
     ## How long a looping replay holds on its final game-over frame (real
@@ -255,8 +263,15 @@ proc initReplayPlayer*(data: ReplayData): ReplayPlayer =
   result.pendingSeekTick = -1
 
 proc replaySpeed*(replay: ReplayPlayer): int =
-  ## Returns the current integer replay speed.
+  ## Returns the current integer replay speed (1 while at 1/2x — the
+  ## fractional pace lives in replayStepBudget's frame parity).
   PlaybackSpeeds[clamp(replay.speedIndex, 0, PlaybackSpeeds.high)]
+
+proc replayDisplaySpeed*(replay: ReplayPlayer): float =
+  ## Returns the speed the chrome shows: 0.5 at half speed, else the
+  ## integer speed.
+  if replay.speedIndex == ReplayHalfSpeedIndex: 0.5
+  else: float(replay.replaySpeed())
 
 proc replayMaxTick*(replay: ReplayPlayer): int =
   ## Returns the final tick available in the replay.
@@ -760,10 +775,13 @@ proc isLullTick*(replay: ReplayPlayer, tick: int): bool =
 
 proc replayStepBudget*(replay: ReplayPlayer, tick: int): int =
   ## Returns how many ticks playback may advance this frame from one tick:
-  ## the chosen speed, boosted inside a lull while skip-lulls is on.
+  ## the chosen speed, boosted inside a lull while skip-lulls is on. At 1/2x
+  ## a tick is spent only every other frame (halfPhase parity).
   let speed = replay.replaySpeed()
   if replay.skipLulls and replay.isLullTick(tick):
     return min(speed * LullSpeedBoost, MaxLullTicksPerFrame)
+  if replay.speedIndex == ReplayHalfSpeedIndex:
+    return (if replay.halfPhase: 1 else: 0)
   speed
 
 proc seekReplay*(replay: var ReplayPlayer, sim: var SimServer, tick: int) =
@@ -837,12 +855,15 @@ proc applyReplaySeek*(
   replay.beginSeek(sim, tick)
 
 proc applySpeedCommand*(speedIndex: var int, command: char) =
-  ## Applies one live playback speed command.
+  ## Applies one live playback speed command. '5' selects the 1/2x replay
+  ## speed (ReplayHalfSpeedIndex); the live loop clamps that back to 1x.
   case command
   of '+', '=':
     speedIndex = min(speedIndex + 1, PlaybackSpeeds.high)
   of '-', '_':
-    speedIndex = max(speedIndex - 1, 0)
+    speedIndex = max(speedIndex - 1, ReplayHalfSpeedIndex)
+  of '5':
+    speedIndex = ReplayHalfSpeedIndex
   of '1':
     speedIndex = 0
   of '2':
@@ -871,7 +892,7 @@ proc applyReplayCommand*(
     replay.playing = true
   of 'P':
     replay.playing = false
-  of '+', '=', '-', '_', '1', '2', '3', '4', '8', '6':
+  of '+', '=', '-', '_', '1', '2', '3', '4', '5', '8', '6':
     applySpeedCommand(replay.speedIndex, command)
   of ',', '<':
     replay.playing = false
@@ -927,6 +948,7 @@ proc advanceReplayPlayback*(
   # frame is what made the hosted 50 % scrub read stale) and over playback:
   # the seek is paused by definition, and the next frame either converges
   # further or resumes.
+  replay.halfPhase = not replay.halfPhase
   if replay.pendingSeekTick >= 0:
     if replay.convergeSeek(sim):
       onJump()

@@ -19,13 +19,20 @@ wasm_replay_smoke.cjs — the machinery this fork exists to reuse.
 
 How it reads the file WITHOUT a decoder for the whole record stream:
 
-* the header is ASCII up to the config JSON, so the config is recovered by
-  BRACE-MATCHING from the first `{` (the technique the starter's AGENTS.md
-  documents for prod forensics);
+* the header is SELF-DESCRIBING -- magic, u16 format version, then the game
+  name, the game version and the config JSON each as a u16-length-prefixed
+  string, with a u64 wall-clock stamp before the config -- so those four
+  fields are read by their own lengths. (They used to be recovered by
+  scanning: the first digit run for the version, the first `{` for the
+  config. Both are wrong, because the u64 stamp sitting between them is
+  BINARY: roughly one stamp in twenty ends in an ASCII digit and stretched
+  the version to "20", and one in 256 contains a `{` and swallowed the
+  config.)
 * the CONTROL records — `roundcard`, `register`, `directive`, `fallback`,
   `budget_guard`, `result` — are UTF-8 JSON objects embedded verbatim in the
-  chat records, so they are recovered the same way, by scanning the remaining
-  bytes for balanced `{"k":...}` objects.
+  chat records, so they are recovered by BRACE-MATCHING the bytes after the
+  config for balanced `{"k":...}` objects (the technique the starter's
+  AGENTS.md documents for prod forensics).
 
 Nothing here needs the record framing, so it cannot drift when the framing
 changes; it only needs the two things that are text.
@@ -35,6 +42,9 @@ from __future__ import annotations
 
 import json
 import sys
+
+
+MAGIC = b"COWLDMPE"
 
 
 def brace_match(data: bytes, start: int) -> tuple[dict | None, int]:
@@ -76,35 +86,28 @@ def brace_match(data: bytes, start: int) -> tuple[dict | None, int]:
 
 def summarise(path: str) -> dict:
     data = open(path, "rb").read()
-    header = data[:64]
     protocol = "particle-worlds/v1"
     game_version = ""
-    # The header is `magic + format version + gameName + gameVersion` before the
-    # config; recover the version as the ASCII run right after the game name.
-    try:
-        head_text = header.decode("latin-1")
-        # Split AFTER the magic ("COWLDMPE" itself ends in the game name), so
-        # the digit scan runs from the gameName+gameVersion region.
-        if "COWLDMPE" in head_text:
-            head_text = head_text.split("COWLDMPE", 1)[1]
-        if "particle-worlds" in head_text:
-            tail = head_text.split("particle-worlds", 1)[1]
-            digits = ""
-            for ch in tail:
-                if ch.isdigit():
-                    digits += ch
-                elif digits:
-                    break
-            game_version = digits
-    except Exception:                                   # noqa: BLE001
-        pass
-
-    first = data.find(b"{")
+    # The header is self-describing, so READ it rather than guess at it: the
+    # magic, a u16 format version, then the game name and the game version as
+    # u16-length-prefixed strings (bitworld's `writeReplayString`, little
+    # endian). The eight bytes that follow the version are a u64 wall-clock
+    # stamp, so the old "first digit run after the game name" scan appended a
+    # stamp byte whenever the low byte happened to be ASCII '0'-'9' -- or one
+    # of latin-1's superscript digits, which `str.isdigit()` also accepts --
+    # and reported a version like "20". That is ~13 of 256 stamps, and it made
+    # tests/test_replay.nim fail about one run in twenty.
     config: dict = {}
     cursor = 0
-    if first >= 0:
-        config, cursor = brace_match(data, first)
-        config = config or {}
+    if data.startswith(MAGIC):
+        pos = len(MAGIC) + 2                        # past the u16 format version
+        pos += 2 + int.from_bytes(data[pos:pos + 2], "little")   # past gameName
+        version_len = int.from_bytes(data[pos:pos + 2], "little")
+        game_version = data[pos + 2:pos + 2 + version_len].decode("utf-8")
+        pos += 2 + version_len + 8                  # past the version + u64 stamp
+        config_len = int.from_bytes(data[pos:pos + 2], "little")
+        cursor = pos + 2 + config_len
+        config = json.loads(data[pos + 2:cursor].decode("utf-8"))
 
     directives: list[dict] = []
     fallbacks = 0
