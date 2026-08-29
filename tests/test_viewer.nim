@@ -179,8 +179,10 @@ suite "the broadcast chrome":
 
   test "chrome_common.js is the starter's, and its sha256 is pinned":
     ## Copied byte-for-byte from coworld-ctf apart from the ONE wire identifier
-    ## the generator emits. Not edited, not reformatted -- everything particle
-    ## worlds adds lives in the appended game block.
+    ## the generator emits and the fleet-wide replay transport patch (the 0.5x
+    ## speed chip + its command-map entry). Not otherwise edited, not
+    ## reformatted -- everything particle worlds adds lives in the appended
+    ## game block.
     check chrome.count("window.MPE_WIRE") == 1
     check "CTF_WIRE" notin chrome
     check "window.ChromeCommon" in chrome
@@ -188,7 +190,7 @@ suite "the broadcast chrome":
                       "setVerdict"]:
       check inherited in chrome
     check chrome.sha256Hex() ==
-      "44cfecde990a67d87872ab2cd6e1c8798e904c8685d7fa2e4ffa41256ea61d13"
+      "bdc64f12657231868d6762b12f5e2bc5c71e65ad40bb12e24bc91f5d5450c8cd"
 
   test "broadcast_core.js differs from the starter's only in MPE_WIRE":
     check core.count("window.MPE_WIRE") == 2

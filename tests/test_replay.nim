@@ -499,6 +499,45 @@ suite "the replay":
   test "the recorded replay stays well under a megabyte":
     check getFileSize(episode.path) < 1_000_000
 
+  test "half speed is a replay-only crawl":
+    ## The fleet-wide 1/2x replay speed: command '5' selects
+    ## ReplayHalfSpeedIndex, the chrome shows 0.5, and the step budget spends
+    ## one tick every OTHER frame (halfPhase parity) outside lulls.
+    var
+      sim = seatedSim(fixtureConfig())
+      replay = ReplayPlayer()
+    replay.speedIndex = 0
+    ## Through the PUBLIC command path the speed chip drives: a '5' that the
+    ## dispatch set forgot would leave the chip inert.
+    replay.applyReplayCommand(sim, '5')
+    check replay.speedIndex == ReplayHalfSpeedIndex
+    check replay.replayDisplaySpeed() == 0.5
+    ## The integer speed clamps to 1x at 1/2x, so the live loop (which shares
+    ## applySpeedCommand) can never be handed a zero or negative step count.
+    check replay.replaySpeed() == 1
+    check playbackSpeed(replay.speedIndex) == 1
+    replay.skipLulls = false
+    replay.halfPhase = false
+    check replay.replayStepBudget(0) == 0
+    replay.halfPhase = true
+    check replay.replayStepBudget(0) == 1
+    ## 1/2x is the bottom of the ladder, and '+' climbs straight back to 1x.
+    applySpeedCommand(replay.speedIndex, '+')
+    check replay.speedIndex == 0
+    applySpeedCommand(replay.speedIndex, '-')
+    check replay.speedIndex == ReplayHalfSpeedIndex
+    applySpeedCommand(replay.speedIndex, '-')
+    check replay.speedIndex == ReplayHalfSpeedIndex
+
+  test "the league shell forwards Space down the command channel":
+    ## keydown never crosses the iframe boundary, so the shell has to relay
+    ## play/pause itself; the board page binds Space directly.
+    let shell = sourceOf("client/league_replayer.html")
+    check "ev.key===' '" in shell
+    check "sendCmd(' ')" in shell
+    check "if (k === ' ') { ev.preventDefault(); togglePlay(); }" in
+      sourceOf("client/replay_broadcast.html")
+
   test "cleanup":
     removeFile(episode.path)
     check not fileExists(episode.path)
