@@ -157,6 +157,7 @@ when isMainModule:
   let variant = args[1]
   doAssert variant in Variants
   let manifest = parseFile(args[0])
+  setCurrentDir(absolutePath(args[0]).parentDir)
   var variantConfig: JsonNode
   for entry in manifest["variants"]:
     if entry["id"].getStr() == variant: variantConfig = entry["game_config"]
