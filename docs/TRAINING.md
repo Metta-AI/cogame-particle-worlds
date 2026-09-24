@@ -1,3 +1,25 @@
+# Training Particle Worlds
+
+The persistent numeric bridge covers all five certified variants: `default`,
+`coop`, `deception`, `comms`, and `chase`. It uses each seat's exact hosted
+`seatViewJson`, exposes a fixed 178-feature encoding, and passes seven action
+heads through the production directive parser and controller. All four views
+and scripted teacher actions are frozen before a turn's orders and radio
+symbols are applied. A complete episode includes four rounds.
+
+```sh
+nimby sync nimby.lock
+nim c -d:release --path:src -o:/tmp/particle-worlds-train-bridge tools/train_bridge.nim
+python3 tools/test_train_bridge.py /tmp/particle-worlds-train-bridge
+```
+
+For Metta RL, call `recipes.external.coworld_metta_rl.train`. For native
+PufferLib, call `recipes.external.coworld.train`. Pass a command of the form
+`[/tmp/particle-worlds-train-bridge, /path/to/coworld_manifest_template.json,
+default]`, choose one of the five variants, and set `players=4`. Always set a
+finite timestep limit. The bridge also provides the full seat view as a
+semantic observation for Observatory consumers.
+
 # Metta post-training data
 
 The native simulator and published `drifter` policy can export supervised
