@@ -114,9 +114,8 @@ call.
 
 The game container does **not** receive `COWORLD_TIMEOUT_SECONDS`; assume
 `episodeTimeoutSeconds` = 1200 and settle inside 60 % of it. Every wait is
-bounded: `attempt1Ms` 6000 and `retryMs` 3000 (both whole seconds, because
-curly hands the deadline to `CURLOPT_TIMEOUT`, whose granularity is whole
-seconds), an outer monotonic `turnBudgetMs` of 10 000, `lobbyJoinTimeoutTicks`
+bounded: `attempt1Ms` 6000 and `retryMs` 3000 for ordinary player replies,
+an outer monotonic `turnBudgetMs` of 10 000, `lobbyJoinTimeoutTicks`
 on the connect wait, the 690 s engine stop, and a bounded post-artifact
 shutdown grace. The budget guard switches the remaining turns to the scripted
 layer rather than overrunning.

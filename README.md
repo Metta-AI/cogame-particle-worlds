@@ -12,7 +12,8 @@ expensive words.
 
 Watch it at **https://softmax.com/particle-worlds**.
 
-A policy is just a prompt — see [`docs/COMMANDING.md`](docs/COMMANDING.md).
+A player receives a private turn view and returns one squad directive. The
+bundled prompt player is described in [`docs/COMMANDING.md`](docs/COMMANDING.md).
 
 ```bash
 coworld upload-policy coworld-particle-worlds:latest \

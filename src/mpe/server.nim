@@ -1,5 +1,6 @@
 import
-  std/[algorithm, json, locks, monotimes, nativesockets, os, strutils, tables, times],
+  std/[algorithm, json, locks, monotimes, nativesockets, os, parsejson, streams,
+       strutils, tables, times],
   supersnappy,
   bitworld/client as bitworldClient, bitworld/profile, bitworld/spriteprotocol,
   bitworld/runtime,
@@ -30,6 +31,8 @@ type
     inputPressedMasks: Table[WebSocket, uint8]
     lastAppliedMasks: Table[WebSocket, uint8]
     chatMessages: Table[WebSocket, string]
+    actionMessages: Table[WebSocket, seq[string]]
+    nextDecisionId: int
     playerIndices: Table[WebSocket, int]
     playerAddresses: Table[WebSocket, string]
     playerSlots: Table[WebSocket, int]
@@ -259,6 +262,7 @@ proc initAppState() =
   appState.inputPressedMasks = initTable[WebSocket, uint8]()
   appState.lastAppliedMasks = initTable[WebSocket, uint8]()
   appState.chatMessages = initTable[WebSocket, string]()
+  appState.actionMessages = initTable[WebSocket, seq[string]]()
   appState.playerIndices = initTable[WebSocket, int]()
   appState.playerAddresses = initTable[WebSocket, string]()
   appState.playerSlots = initTable[WebSocket, int]()
@@ -308,6 +312,7 @@ proc removePlayerWebSocketState(websocket: WebSocket): int =
   appState.inputPressedMasks.del(websocket)
   appState.lastAppliedMasks.del(websocket)
   appState.chatMessages.del(websocket)
+  appState.actionMessages.del(websocket)
   appState.playerAddresses.del(websocket)
   appState.playerSlots.del(websocket)
   appState.playerTokens.del(websocket)
@@ -925,6 +930,12 @@ proc websocketHandler(
             appState.inputPressedMasks[websocket] = pressedMask
             if chatText.len > 0:
               appState.chatMessages[websocket] = chatText
+    elif message.kind == TextMessage:
+      {.gcsafe.}:
+        withLock appState.lock:
+          if websocket in appState.playerIndices:
+            if appState.actionMessages.mgetOrPut(websocket, @[]).len < 8:
+              appState.actionMessages[websocket].add(message.data)
   of ErrorEvent, CloseEvent:
     var who = ""
     {.gcsafe.}:
@@ -1214,9 +1225,10 @@ proc declarePlayerFailure(slot: int, message: string) =
 
 proc parseRegistration(
   text: string
-): tuple[ok: bool, prompt, scripted, policy: string] =
+): tuple[ok: bool, kind, scripted, policy: string] =
   ## A seat's ONE Sprite v1 chat message, read as its registration:
-  ##   {"type":"register","prompt":"…","scripted":"drifter"|null,"policy":"…"}
+  ##   {"type":"register","kind":"external"|"scripted",
+  ##    "scripted":"drifter"|"beeline"|null,"policy":"…"}
   ## Anything that is not that object is not a registration.
   result = (false, "", "", "")
   if text.len == 0 or text[0] != '{':
@@ -1228,11 +1240,92 @@ proc parseRegistration(
     return
   if node.kind != JObject or node{"type"}.getStr() != "register":
     return
+  result.kind = node{"kind"}.getStr()
+  if result.kind notin ["external", "scripted"]:
+    return
   result.ok = true
-  result.prompt = node{"prompt"}.getStr()
   if not node{"scripted"}.isNil and node{"scripted"}.kind == JString:
     result.scripted = node{"scripted"}.getStr()
   result.policy = node{"policy"}.getStr()
+
+proc playerBatch(seatSockets: seq[WebSocket], connected: seq[bool]): BatchFn =
+  result = proc(calls: seq[BatchCall], timeoutSeconds: int): seq[BatchReply]
+      {.closure, gcsafe.} =
+    result = newSeq[BatchReply](calls.len)
+    var requestId: int
+    {.gcsafe.}:
+      withLock appState.lock:
+        inc appState.nextDecisionId
+        requestId = appState.nextDecisionId
+        for call in calls:
+          if connected[call.seat]:
+            appState.actionMessages.del(seatSockets[call.seat])
+    for position, call in calls:
+      if not connected[call.seat]:
+        result[position].cause = "transport_error"
+        result[position].error = "player disconnected"
+        continue
+      seatSockets[call.seat].send($(%*{
+        "type": "turn", "id": requestId, "turn": call.turn,
+        "view": parseJson(call.view), "retry": call.retry,
+        "timeout_seconds": timeoutSeconds
+      }), TextMessage)
+    let deadline = getMonoTime() + initDuration(seconds = timeoutSeconds)
+    while getMonoTime() < deadline:
+      var pending = false
+      for position, call in calls:
+        if result[position].ok or result[position].error.len > 0:
+          continue
+        var raw = ""
+        {.gcsafe.}:
+          withLock appState.lock:
+            let socket = seatSockets[call.seat]
+            if appState.actionMessages.hasKey(socket) and
+                appState.actionMessages[socket].len > 0:
+              raw = appState.actionMessages[socket][0]
+              appState.actionMessages[socket].delete(0)
+        if raw.len == 0:
+          pending = true
+          continue
+        var parser: JsonParser
+        parser.open(newStringStream(raw), "player decision")
+        parser.next()
+        while parser.kind notin {jsonEof, jsonError}:
+          parser.next()
+        let validJson = parser.kind == jsonEof
+        parser.close()
+        if not validJson:
+          result[position].cause = "parse_error"
+          result[position].error = "invalid player response"
+          continue
+        let answer = parseJson(raw)
+        if answer.kind != JObject or not answer.hasKey("type") or
+            answer["type"].kind != JString or not answer.hasKey("id") or
+            answer["id"].kind != JInt:
+          result[position].cause = "parse_error"
+          result[position].error = "invalid player response envelope"
+          continue
+        if answer["type"].getStr() != "decision" or
+            answer["id"].getInt() != requestId:
+          pending = true
+          continue
+        if answer.hasKey("action") and answer["action"].kind == JObject:
+          result[position].ok = true
+          result[position].action = $answer["action"]
+        elif answer.hasKey("cause") and answer["cause"].kind == JString and
+            answer.hasKey("error") and answer["error"].kind == JString:
+          result[position].error = answer["error"].getStr()
+          result[position].cause = answer["cause"].getStr()
+        else:
+          result[position].cause = "parse_error"
+          result[position].error = "invalid player decision"
+      if not pending:
+        break
+      sleep(10)
+    for reply in result.mitems:
+      if not reply.ok and reply.error.len == 0:
+        reply.cause = "timeout"
+        reply.error = "player response timed out"
 
 proc squadAlias(sim: SimServer, order: int): string =
   ## The ANONYMOUS in-game name of the cog that will occupy slot `order`,
@@ -1482,6 +1575,7 @@ proc runServerLoop*(
           shouldReset = true
           appState.resetRequested = false
           appState.chatMessages.clear()
+          appState.actionMessages.clear()
         for websocket in appState.closedSockets:
           if squadMode:
             # A seat that drops does NOT remove its cogs: the squad is fixed
@@ -1754,12 +1848,11 @@ proc runServerLoop*(
               var policy = engine.seats[playerIndex]
               let firstRegistration = not policy.registered
               policy.registered = true
-              policy.prompt = registration.prompt.truncateRunes(MaxPromptRunes)
-              policy.isLlm = policy.prompt.len > 0
+              policy.isExternal = registration.kind == "external"
               policy.baseline = parseBaseline(registration.scripted)
               policy.label =
                 if registration.policy.len > 0: registration.policy
-                elif policy.isLlm: "prompt"
+                elif policy.isExternal: "external"
                 else: $policy.baseline
               engine.seats[playerIndex] = policy
               if playerIndex <= sim.seatPolicyKind.high:
@@ -1945,6 +2038,13 @@ proc runServerLoop*(
         lastTurnKey = turnKey
         let turnsPerRound =
           if config.maxTicks > 0: max(1, config.maxTicks div turnTicks) else: 0
+        var seatSockets = newSeq[WebSocket](sim.seatCount())
+        var connected = newSeq[bool](sim.seatCount())
+        for i, playerIndex in playerIndices:
+          if playerIndex >= 0 and playerIndex < sim.seatCount():
+            seatSockets[playerIndex] = sockets[i]
+            connected[playerIndex] = true
+        engine.batch = playerBatch(seatSockets, connected)
         let records = engine.turn(sim, turnIndex, turnsPerRound, elapsedSeconds)
         for record in records:
           replayWriter.writeChat(tickTime(sim.tickCount), 0, record)

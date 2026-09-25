@@ -1,394 +1,102 @@
-## The turn loop, against a REAL fake provider.
-##
-## `AWS_ENDPOINT_URL_BEDROCK_RUNTIME` is part of the credential ladder, so this
-## test stands a mummy server up on localhost and points the client at it. That
-## makes the load-bearing claim actually testable rather than asserted: ALL FOUR
-## seats' calls go out as ONE PARALLEL BATCH per turn, and the fake records the
-## in-flight window of every request so the test can prove all four intersect.
-##
-## It also pins the two bounded deadlines, the single retry, the throttle
-## fail-fast, the rate floor and the budget guard.
+## The ordinary-player turn batch, retry, and fallback boundary.
 
-import std/[atomics, json, locks, monotimes, os, strutils, times, unicode,
-            unittest]
-import bitworld/spriteprotocol
-import mummy, mummy/routers
-import ../src/mpe/[sim, control, directives, baselines, decide, llm]
+import std/[json, unittest]
+import ../src/mpe/[sim, directives, decide]
 import fixture
 
-type
-  Window = object
-    startMs, endMs: int
-
-var
-  windowLock: Lock
-  windows: seq[Window]
-  serverStarted: MonoTime
-  holdMs: Atomic[int]           ## how long the fake sleeps before answering
-  statusCode: Atomic[int]       ## what the fake answers with
-  replyBody: string
-  bodyLock: Lock
-
-windowLock.initLock()
-bodyLock.initLock()
-
-proc nowMs(): int =
-  (getMonoTime() - serverStarted).inMilliseconds.int
-
-proc fakeHandler(request: Request) {.gcsafe.} =
-  let began = nowMs()
-  let hold = holdMs.load()
-  if hold > 0:
-    sleep(hold)
-  let code = statusCode.load()
-  var body: string
-  {.cast(gcsafe).}:
-    withLock bodyLock:
-      body = replyBody
-    withLock windowLock:
-      windows.add(Window(startMs: began, endMs: nowMs()))
-  var headers: HttpHeaders
-  headers["content-type"] = "application/json"
-  request.respond(code, headers, body)
-
-proc bedrockReply(text: string): string =
-  $(%*{"content": [{"type": "text", "text": text}]})
-
-proc directiveReply(alias: string): string =
-  bedrockReply($(%*{
-    "note": "fake provider",
-    "cogs": [{"id": alias, "intent": "cover", "target": [400, 300],
-              "symbol": "F"}]
-  }))
-
-var router: Router
-router.get("/**", fakeHandler)
-router.post("/**", fakeHandler)
-let fake = newServer(router)
-var servePort = 0
-
-# The fake is pinned to a fixed high port; this test is the only thing on it.
-const FakePort = 8791
-
-var fakeThread: Thread[void]
-proc serveFake() {.thread.} =
-  fake.serve(Port(FakePort))
-
-proc bootFake() =
-  serverStarted = getMonoTime()
-  holdMs.store(0)
-  statusCode.store(200)
-  withLock bodyLock:
-    replyBody = directiveReply("RED-alpha")
-  createThread(fakeThread, serveFake)
-  sleep(400)                     ## let mummy bind before the first request
-  servePort = FakePort
-  putEnv("AWS_ENDPOINT_URL_BEDROCK_RUNTIME",
-         "http://127.0.0.1:" & $FakePort)
-  putEnv("AWS_BEARER_TOKEN_BEDROCK", "fake-token")
-  delEnv("ANTHROPIC_API_KEY")
-  delEnv("ANTHROPIC_API_KEY_URI")
-
-proc resetWindows() =
-  withLock windowLock:
-    windows.setLen(0)
-
-proc recordedWindows(): seq[Window] =
-  withLock windowLock:
-    result = windows
-
-proc llmEngine(sim: SimServer): DecisionEngine =
+proc externalEngine(sim: SimServer): DecisionEngine =
   result = initDecisionEngine(sim)
   for seat in 0 ..< result.seats.len:
-    result.seats[seat].isLlm = true
-    result.seats[seat].prompt = "cover a mark"
+    result.seats[seat].isExternal = true
     result.seats[seat].registered = true
-    result.seats[seat].label = "fake"
+    result.seats[seat].label = "test-player"
 
-suite "the turn loop":
+proc replyFor(view: string): BatchReply =
+  let observation = parseJson(view)
+  let action = %*{
+    "note": "from ordinary player",
+    "cogs": [{
+      "id": observation["you"]["id"],
+      "intent": "cover", "target": [400, 300], "symbol": "F"
+    }]
+  }
+  BatchReply(ok: true, action: $action)
 
-  bootFake()
-
-  test "the client picks up the fake Bedrock endpoint":
-    var sim = seatedSim(fixtureConfig())
-    let client = newLlmClient(sim.config)
-    check client.transport == ltBedrock
-    check not client.disabled
-
-  test "all four seats' calls go out in ONE parallel batch":
-    var sim = seatedSim(fixtureConfig(@[modeSpread]))
-    var engine = llmEngine(sim)
-    const Hold = 400            ## long enough that serial calls could not hide
-    holdMs.store(Hold)
-    resetWindows()
-    let began = getMonoTime()
+suite "ordinary player turn loop":
+  test "one batch carries four distinct private views":
+    let sim = seatedSim(fixtureConfig(@[modeCrypto]))
+    var engine = externalEngine(sim)
+    var batches = 0
+    engine.batch = proc(calls: seq[BatchCall], timeoutSeconds: int): seq[BatchReply]
+        {.closure, gcsafe.} =
+      inc batches
+      check calls.len == 4
+      check timeoutSeconds > 0
+      for call in calls:
+        check call.seat in 0 ..< 4
+        let view = parseJson(call.view)
+        check view["you"]["id"].getStr() in
+          ["RED-alpha", "BLUE-alpha", "GREEN-alpha", "YELLOW-alpha"]
+        check not view.hasKey("policy")
+        result.add(replyFor(call.view))
     let records = engine.turn(sim, 0, 10, 0)
-    let elapsed = (getMonoTime() - began).inMilliseconds.int
-    holdMs.store(0)
-    let seen = recordedWindows()
-    check seen.len == FixtureSeats   ## exactly one call per seat per turn
-    ## The whole batch must finish in far less than the serial cost of four
-    ## calls: that is what "one parallel batch" means, and a loop that queried
-    ## the seats one after another could not do it.
-    echo "batch of ", seen.len, " at ", Hold, " ms each took ", elapsed, " ms"
-    check elapsed < FixtureSeats * Hold
-    ## And the requests really did overlap in the provider, not just in the
-    ## client: at least one pair of handler windows intersects.
-    var overlaps = 0
-    for i in 0 ..< seen.len:
-      for j in i + 1 ..< seen.len:
-        if seen[i].startMs <= seen[j].endMs and seen[j].startMs <= seen[i].endMs:
-          inc overlaps
-    check overlaps > 0
-    ## And all four seats really got an LLM directive, not a fallback.
+    check batches == 1
+    check records.len == 0
     for seat in 0 ..< 4:
-      check engine.haveDirective[seat]
       check engine.directives[seat].source == dsLlm
-      check engine.directives[seat].orders.len == 1
-      check engine.directives[seat].orders[0].intent == intCover
-    for record in records:
-      check "fallback" notin record
+      check engine.directives[seat].orders[0].cogIndex == seat
 
-  test "an unusable reply retries exactly once, then falls back to drifter":
-    var sim = seatedSim(fixtureConfig(@[modeSpread]))
-    var engine = llmEngine(sim)
-    withLock bodyLock:
-      replyBody = bedrockReply("I would rather not answer in JSON.")
-    resetWindows()
+  test "unusable actions retry once and produce one fallback per seat":
+    let sim = seatedSim(fixtureConfig(@[modeSpread]))
+    var engine = externalEngine(sim)
+    var batches = 0
+    engine.batch = proc(calls: seq[BatchCall], timeoutSeconds: int): seq[BatchReply]
+        {.closure, gcsafe.} =
+      inc batches
+      for call in calls:
+        check call.retry == (batches == 2)
+        result.add(BatchReply(ok: true, action: "{}"))
     let records = engine.turn(sim, 1, 10, 0)
-    withLock bodyLock:
-      replyBody = directiveReply("RED-alpha")
-    ## Two batches of four: attempt 1 and exactly ONE retry.
-    check recordedWindows().len == 8
-    var fallbacks = 0
-    var seatsSeen: set[uint8]
+    check batches == 2
+    check records.len == 4
     for record in records:
       let node = parseJson(record)
-      if node["k"].getStr() == "fallback":
-        inc fallbacks
-        check node["cause"].getStr() in
-          ["parse_error", "timeout", "transport_error"]
-        check node["detail"].getStr().runeLen <= MaxFallbackDetailRunes
-        ## ONE authoritative record per seat-turn, stamped with the number of
-        ## attempts the seat actually spent. `results.fallbackTurns` counts
-        ## seat-turns, so a stream with two or three records per seat-turn made
-        ## replay_summary.py's `fallbacks` a different number from it.
-        check node["attempt"].getInt() == 2
-        let seat = uint8(node["seat"].getInt())
-        check seat notin seatsSeen
-        seatsSeen.incl(seat)
-    check fallbacks == 4
+      check node["k"].getStr() == "fallback"
+      check node["attempt"].getInt() == 2
     for seat in 0 ..< 4:
       check engine.directives[seat].source == dsFallback
       check engine.directives[seat].orders.len == 1
-      ## The fallback is the published `drifter` order, so no particle is left
-      ## unactuated.
-      check engine.directives[seat].orders[0].id == sim.cogAlias(seat)
 
-  test "a throttle with no other candidate model skips the retry":
-    var sim = seatedSim(fixtureConfig(@[modeSpread]))
-    var engine = llmEngine(sim)
-    statusCode.store(429)
-    resetWindows()
-    let records = engine.turn(sim, 2, 10, 0)
-    statusCode.store(200)
-    ## ONE batch, not two: the retry cannot land, so the turn fails fast to the
-    ## scripted layer instead of spending the budget on a refused call.
-    check recordedWindows().len == 4
-    var throttled = 0
+  test "reported no credentials falls back without a retry":
+    let sim = seatedSim(fixtureConfig(@[modeSpread]))
+    var engine = externalEngine(sim)
+    var batches = 0
+    engine.batch = proc(calls: seq[BatchCall], timeoutSeconds: int): seq[BatchReply]
+        {.closure, gcsafe.} =
+      inc batches
+      for call in calls:
+        result.add(BatchReply(cause: "no_credentials", error: "player has no key"))
+    let records = engine.turn(sim, 0, 10, 0)
+    check batches == 1
+    check records.len == 4
     for record in records:
       let node = parseJson(record)
-      if node["k"].getStr() == "fallback" and
-          node["cause"].getStr() == "throttled":
-        inc throttled
-        ## The retry never went out, so the seat spent exactly one attempt.
-        check node["attempt"].getInt() == 1
-    ## One record per seat, not one per attempt plus a tail.
-    check throttled == 4
-    for seat in 0 ..< 4:
-      check engine.directives[seat].source == dsFallback
+      check node["cause"].getStr() == "no_credentials"
+      check node["attempt"].getInt() == 1
 
-  test "the per-turn budget is enforced against a hung provider":
-    var config = fixtureConfig(@[modeSpread])
-    config.attempt1Ms = 1000
-    config.retryMs = 1000
-    config.turnBudgetMs = 2000
-    var sim = seatedSim(config)
-    var engine = llmEngine(sim)
-    holdMs.store(4000)            ## far past both deadlines
-    let began = getMonoTime()
-    let records = engine.turn(sim, 3, 10, 0)
-    let elapsed = (getMonoTime() - began).inMilliseconds.int
-    holdMs.store(0)
-    ## Two 1 s deadlines inside a 2 s cap: the turn must be over well before
-    ## the provider would have answered.
-    check elapsed < 3500
-    check records.len > 0
-    for seat in 0 ..< 4:
-      check engine.haveDirective[seat]
-      check engine.directives[seat].orders.len == 1
-
-  test "sim_config rejects deadlines that are not whole seconds":
-    var config = fixtureConfig()
-    config.attempt1Ms = 4500
-    expect MpeError:
-      config.update("{}")
-    config = fixtureConfig()
-    config.retryMs = 2500
-    expect MpeError:
-      config.update("{}")
-
-  test "sim_config rejects attempt1Ms + retryMs past turnBudgetMs":
-    var config = fixtureConfig()
-    config.attempt1Ms = 8000
-    config.retryMs = 5000
-    config.turnBudgetMs = 10_000
-    expect MpeError:
-      config.update("{}")
-
-  test "the rate floor holds four seats under 30 requests a minute":
-    ## 4 seats per batch and one batch every turnSpacingMs: the shipped variant
-    ## floor is 9000 ms, which pins the episode at 4 * 60 / 9 = 26.7 req/min.
-    let config = variantConfig(@[modeSpread])
-    check config.turnSpacingMs == DefaultParticleTurnSpacingMs
-    let perMinute = FixtureSeats * 60_000 div config.turnSpacingMs
-    check perMinute <= 30
-    ## And the floor is really honoured between consecutive batches.
-    var spaced = fixtureConfig(@[modeSpread])
-    spaced.turnSpacingMs = 600
-    var sim = seatedSim(spaced)
-    var engine = llmEngine(sim)
-    let began = getMonoTime()
-    discard engine.turn(sim, 0, 10, 0)
-    discard engine.turn(sim, 1, 10, 0)
-    let elapsed = (getMonoTime() - began).inMilliseconds.int
-    check elapsed >= spaced.turnSpacingMs
-
-  test "the rate floor never eats the single retry":
-    ## The shipped variants hold batch STARTS turnSpacingMs (9 s) apart inside
-    ## a turnBudgetMs (10 s) per-turn cap. While the floor's sleep was clocked
-    ## INSIDE that cap, a turn that slept and then timed out attempt 1 was
-    ## already past the deadline, so it wrote a budget-exhausted record and
-    ## broke: the retry the acceptance checklist requires was never issued at
-    ## the shipped settings. Scaled-down here (1.2 s floor, two 1 s deadlines,
-    ## a 2 s cap) against a provider that never answers in time.
-    var config = fixtureConfig(@[modeSpread])
-    config.turnSpacingMs = 1200
-    config.attempt1Ms = 1000
-    config.retryMs = 1000
-    config.turnBudgetMs = 2000
-    var sim = seatedSim(config)
-    var engine = llmEngine(sim)
-    ## Turn 0 starts the spacing clock; turn 1 is the one that pays the floor.
-    discard engine.turn(sim, 0, 10, 0)
-    resetWindows()
-    holdMs.store(4000)            ## every call outlives both deadlines
-    let spacedBegan = getMonoTime()
-    let spacedRecords = engine.turn(sim, 1, 10, 0)
-    let spacedElapsed = (getMonoTime() - spacedBegan).inMilliseconds.int
-    holdMs.store(0)
-    ## The floor really was paid ...
-    check spacedElapsed >= config.turnSpacingMs
-    ## ... and the whole turn still cost at most the floor plus the budget, so
-    ## the fix did not buy the retry by overrunning.
-    check spacedElapsed < config.turnSpacingMs + config.turnBudgetMs + 1000
-    ## BOTH batches went out. The seat-turn's one record is stamped with the
-    ## attempts the seat SPENT: 2 means attempt 1 timed out and the retry was
-    ## issued anyway. With the floor inside the budget this read `attempt: 1`
-    ## with detail "per-turn budget exhausted before attempt 2" -- the retry
-    ## the checklist requires, silently skipped.
-    var spacedFallbacks = 0
-    for record in spacedRecords:
-      let node = parseJson(record)
-      if node["k"].getStr() == "fallback":
-        inc spacedFallbacks
-        check node["attempt"].getInt() == 2
-        check node["cause"].getStr() == "timeout"
-        check "per-turn budget exhausted" notin node["detail"].getStr()
-    check spacedFallbacks == 4
-    for seat in 0 ..< 4:
-      check engine.haveDirective[seat]
-      check engine.directives[seat].orders.len == 1
-    ## Let the hung provider's queued handlers drain before the next test reads
-    ## the request windows.
-    sleep(1500)
-    resetWindows()
-
-  test "the budget guard switches to scripted and records the turn":
+  test "budget guard skips player calls and keeps legal directives":
     var config = fixtureConfig(@[modeSpread])
     config.wallClockBudgetSeconds = 30
-    var sim = seatedSim(config)
-    var engine = llmEngine(sim)
-    resetWindows()
-    ## elapsed + 2 * (turnSpacingMs + turnBudgetMs) > wallClockBudgetSeconds
-    ## fires it; the fixture's rate floor is 0, so that is 25 + 2 * 10 > 30.
+    let sim = seatedSim(config)
+    var engine = externalEngine(sim)
+    var batches = 0
+    engine.batch = proc(calls: seq[BatchCall], timeoutSeconds: int): seq[BatchReply]
+        {.closure, gcsafe.} =
+      inc batches
     let records = engine.turn(sim, 5, 10, 25)
-    check engine.llmOff
-    check recordedWindows().len == 0        ## no call was made at all
-    var guards = 0
-    for record in records:
-      let node = parseJson(record)
-      if node["k"].getStr() == "budget_guard":
-        inc guards
-        check node["turn"].getInt() == 5
-    check guards == 1
-    for seat in 0 ..< 4:
-      check engine.haveDirective[seat]
-      check engine.directives[seat].source == dsFallback
-    ## Every later turn stays scripted, in microseconds.
-    resetWindows()
-    discard engine.turn(sim, 6, 10, 26)
-    check recordedWindows().len == 0
-
-  test "no seat's directive is ever empty after turn 0":
-    var sim = seatedSim(fixtureConfig(@[modeCrypto]))
-    var engine = llmEngine(sim)
-    withLock bodyLock:
-      replyBody = bedrockReply("garbage")
-    discard engine.turn(sim, 0, 10, 0)
-    withLock bodyLock:
-      replyBody = directiveReply("RED-alpha")
-    for turn in 1 ..< 6:
-      discard engine.turn(sim, turn, 10, 0)
-      for seat in 0 ..< 4:
-        check engine.haveDirective[seat]
-        check engine.directives[seat].orders.len == 1
-        check engine.directives[seat].orders[0].cogIndex == seat
-
-  test "a disconnected seat plays drifter and revives on reconnect":
-    var config = fixtureConfig(@[modeSpread])
-    var sim = seatedSim(config)
-    var engine = llmEngine(sim)
-    var ctl = initControlState(sim)
-    ## The seat drops: the server keeps compiling masks for its particle from
-    ## the published `drifter` order, so the particle is never unactuated.
-    let scripted = engine.drifterFor(sim, @[2])
-    check scripted.orders.len == 1
-    check scripted.source == dsScripted
-    ctl.observeEnemies(sim)
-    let mask = ctl.compileMask(sim, scripted.orders[0], 2)
-    check (mask and (ButtonA or ButtonC)) == 0
-    ## On reconnect the seat's own LLM directive takes over again.
-    discard engine.turn(sim, 1, 10, 0)
-    check engine.directives[2].source == dsLlm
-
-  test "a seat with NO credentials records a no_credentials fallback":
-    delEnv("AWS_ENDPOINT_URL_BEDROCK_RUNTIME")
-    delEnv("AWS_BEARER_TOKEN_BEDROCK")
-    var sim = seatedSim(fixtureConfig(@[modeSpread]))
-    var engine = llmEngine(sim)
-    check engine.client.transport == ltNone
-    check engine.client.disabled
-    let records = engine.turn(sim, 0, 10, 0)
-    var causes = 0
-    for record in records:
-      let node = parseJson(record)
-      if node["k"].getStr() == "fallback" and
-          node["cause"].getStr() == "no_credentials":
-        inc causes
-    check causes == 4
+    check engine.externalOff
+    check batches == 0
+    check records.len == 5
     for seat in 0 ..< 4:
       check engine.directives[seat].source == dsFallback
-    putEnv("AWS_ENDPOINT_URL_BEDROCK_RUNTIME",
-           "http://127.0.0.1:" & $FakePort)
-    putEnv("AWS_BEARER_TOKEN_BEDROCK", "fake-token")
+      check engine.directives[seat].orders.len == 1

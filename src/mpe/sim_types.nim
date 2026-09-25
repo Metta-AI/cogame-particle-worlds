@@ -1339,8 +1339,6 @@ type
     retryMs*: int                 ## retry batch deadline.
     turnSpacingMs*: int           ## wall-clock floor between batch starts.
     wallClockBudgetSeconds*: int  ## engine hard stop -> reason "deadline".
-    model*: string                ## pinned Bedrock/Anthropic model, "" = auto.
-    maxOutputTokens*: int         ## LLM max_tokens.
     # --- particle worlds (appended; the config object is not wire format, but
     # keeping additions together keeps the schema readable) ---
     rounds*: seq[Mode]            ## the mode played by each round, in order.

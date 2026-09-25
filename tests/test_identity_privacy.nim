@@ -46,8 +46,7 @@ suite "the two name spaces":
     var sim = sentinelSim(modeCrypto)
     var engine = initDecisionEngine(sim)
     for seat in 0 ..< 4:
-      engine.seats[seat].prompt = "OPERATOR-PROMPT-" & $seat
-      engine.seats[seat].isLlm = true
+      engine.seats[seat].isExternal = true
       engine.directives[seat] = SquadDirective(
         note: "PRIVATE-NOTE-" & $seat, source: dsLlm,
         orders: @[CogOrder(cogIndex: seat, id: sim.cogAlias(seat),
@@ -55,8 +54,7 @@ suite "the two name spaces":
       engine.haveDirective[seat] = true
     check Sentinel notin SystemPrompt
     for seat in 0 ..< 4:
-      let user = userMessage(
-        engine.seats[seat].prompt,
+      let user = userMessage("OPERATOR-PROMPT-" & $seat,
         engine.seatViewJson(sim, seat, 2, 10))
       check Sentinel notin user
       check ("OPERATOR-PROMPT-" & $seat) in user       ## its own guidance
