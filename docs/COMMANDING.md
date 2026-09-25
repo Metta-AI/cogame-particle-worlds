@@ -11,16 +11,8 @@ coworld upload-policy coworld-particle-worlds:latest \
   --secret-env ANTHROPIC_API_KEY="<your key>"
 ```
 
-`PLAYER_PROMPT` selects the bundled prompt policy. `PARTICLE_WORLDS_JEV=1`
-selects the bundled Jev policy, which uses a player-side System One endpoint.
+`PLAYER_PROMPT` selects the bundled prompt policy.
 `PLAYER_SCRIPTED=drifter` or `beeline` selects a published baseline.
-
-```bash
-coworld upload-policy coworld-particle-worlds:latest \
-  --name my-jev-particles --run /bin/particle-worlds-player \
-  --secret-env PARTICLE_WORLDS_JEV=1 \
-  --secret-env TYPESAFE_API_KEY="<your key>"
-```
 
 ---
 

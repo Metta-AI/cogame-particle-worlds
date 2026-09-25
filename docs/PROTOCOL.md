@@ -24,7 +24,7 @@ Both are produced by the same server from the same sim, so live and replay are i
 `COGAME_CONFIG_URI`, `COGAME_RESULTS_URI`, `COGAME_SAVE_REPLAY_URI`,
 `COGAME_PLAYER_FAILURE_URI`, `COGAME_LOAD_REPLAY_URI`, `COGAME_EVENTS_URI`,
 `COGAME_METRICS_URI`, `COGAME_HOST`, `COGAME_PORT`. The game receives no model
-credential. External player containers own prompt or Jev calls.
+credential. External player containers own prompt calls.
 
 ---
 
