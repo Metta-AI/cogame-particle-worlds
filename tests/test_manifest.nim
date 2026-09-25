@@ -183,7 +183,7 @@ suite "the manifest":
                  "landmarkSpacingPx", "spawnRingPx", "closeScalePx", "bumpPx",
                  "bumpPenaltyPermille", "bumpPenaltyCap", "tagPx",
                  "tagTargetTicks", "orbitRadiusPx", "shadowStandoffPx",
-                 "evadeProbePx", "symbolCount", "model", "maxOutputTokens",
+                 "evadeProbePx", "symbolCount",
                  "seed"]:
       check schema.hasKey(name)
 
@@ -200,12 +200,11 @@ suite "the manifest":
     for player in manifest["player"]:
       check player["image"].getStr() == "{{PARTICLE_WORLDS_IMAGE}}"
 
-  test "game.name equals the secret namespace and the sim's own GameName":
+  test "game identity is stable and the game receives no model secret":
     let name = manifest["game"]["name"].getStr()
     check name == "particle-worlds"
     check name == GameName
-    check manifest["game"]["runnable"]["env"]["ANTHROPIC_API_KEY_URI"].getStr() ==
-      "secret://coworld/" & name & "/anthropic_api_key"
+    check not manifest["game"]["runnable"].hasKey("env")
 
   test "the entrypoints are the ones the image builds":
     let dockerfile = sourceOf("Dockerfile")

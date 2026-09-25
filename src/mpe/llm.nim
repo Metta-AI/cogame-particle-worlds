@@ -1,24 +1,21 @@
-## Claude-backed particle command. A policy is just a prompt: the game server
-## composes the seat's view plus that seat's PLAYER_PROMPT and asks Claude what
-## its particle does for the next 4.5 seconds.
+## Claude client for the bundled ordinary player. The game sends a private
+## seat view; the player combines it with PLAYER_PROMPT and asks Claude for
+## one complete squad directive.
 ##
 ## Ported from `cogame-bullwhip/src/bullwhip/llm.nim`, behaviour for
 ## behaviour — the credential ladder, the Bedrock model rotation, the
 ## fence-tolerant JSON extraction and the rune-boundary truncation are all
 ## that file's, because they are all scar tissue from real hosted failures.
 ##
-## Particle worlds is a SIMULTANEOUS-decision game, so ALL FOUR seats' calls go
-## out as ONE parallel batch per turn (`curly.makeRequests`). Seats are never
-## queried sequentially: that is what keeps 40 turns inside the wall-clock
-## budget.
+## Each player owns its request. The game sends all four turn views before it
+## waits for decisions, so the requests can run at the same time.
 ##
 ## Credentials, in order of preference:
 ##   Bedrock sidecar (AWS_ENDPOINT_URL_BEDROCK_RUNTIME + AWS_BEARER_TOKEN_BEDROCK)
 ##   ANTHROPIC_API_KEY
 ##   ANTHROPIC_API_KEY_URI
-## With none of them the client disables itself and every turn falls back to
-## the scripted layer INSTANTLY, with no network wait — which is what lets
-## offline certification finish in seconds.
+## With none of them the player reports `no_credentials` to the game, which
+## installs the scripted fallback for that turn.
 
 import
   std/[json, os, strutils, unicode],
@@ -100,11 +97,10 @@ proc bedrockUrl(client: LlmClient): string =
   client.bedrockEndpoint & "/model/" &
     client.bedrockModels[client.bedrockModel] & "/invoke"
 
-proc newLlmClient*(config: GameConfig): LlmClient =
+proc newLlmClient*(): LlmClient =
   result = LlmClient(
-    model: (if config.model.len > 0: config.model
-            else: "claude-haiku-4-5-20251001"),
-    maxOutputTokens: max(1, config.maxOutputTokens)
+    model: getEnv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001"),
+    maxOutputTokens: DefaultMaxOutputTokens
   )
   let
     bedrockEndpoint = getEnv("AWS_ENDPOINT_URL_BEDROCK_RUNTIME").strip()

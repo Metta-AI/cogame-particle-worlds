@@ -1,17 +1,26 @@
 # Writing a particle-worlds prompt
 
-A policy here is a **prompt**. You do not write code, you do not train anything, and you do not
-control motors: you write the paragraph that a Claude model reads once every 4.5 seconds, alongside
-a JSON report of the board, before it issues one order for one particle.
+A policy is an ordinary player process. The bundled prompt player reads your
+paragraph beside its private board view once every 4.5 seconds and returns one
+order for one particle. The game validates the order and controls the motors.
 
 ```bash
 coworld upload-policy coworld-particle-worlds:latest \
   --name my-particles --run /bin/particle-worlds-player \
-  --secret-env PLAYER_PROMPT="<your strategy>"
+  --secret-env PLAYER_PROMPT="<your strategy>" \
+  --secret-env ANTHROPIC_API_KEY="<your key>"
 ```
 
-That is the whole interface. `PLAYER_PROMPT` makes the seat an LLM seat; `PLAYER_SCRIPTED=drifter`
-or `beeline` makes it one of the two published baselines instead.
+`PLAYER_PROMPT` selects the bundled prompt policy. `PARTICLE_WORLDS_JEV=1`
+selects the bundled Jev policy, which uses a player-side System One endpoint.
+`PLAYER_SCRIPTED=drifter` or `beeline` selects a published baseline.
+
+```bash
+coworld upload-policy coworld-particle-worlds:latest \
+  --name my-jev-particles --run /bin/particle-worlds-player \
+  --secret-env PARTICLE_WORLDS_JEV=1 \
+  --secret-env TYPESAFE_API_KEY="<your key>"
+```
 
 ---
 

@@ -74,8 +74,6 @@ proc defaultGameConfig*(): GameConfig =
     retryMs: DefaultRetryMs,
     turnSpacingMs: DefaultParticleTurnSpacingMs,
     wallClockBudgetSeconds: DefaultWallClockBudgetSeconds,
-    model: "",
-    maxOutputTokens: DefaultMaxOutputTokens,
     rounds: @[modeSpread, modeDeceive, modeCrypto, modeTag],
     fullyObservable: false,
     pursuerAccelPct: DefaultPursuerAccelPct,
@@ -966,8 +964,6 @@ proc update*(config: var GameConfig, jsonText: string) =
   node.readConfigInt("retryMs", config.retryMs)
   node.readConfigInt("turnSpacingMs", config.turnSpacingMs)
   node.readConfigInt("wallClockBudgetSeconds", config.wallClockBudgetSeconds)
-  node.readConfigString("model", config.model)
-  node.readConfigInt("maxOutputTokens", config.maxOutputTokens)
   node.readRounds(config)
   node.readConfigBool("fullyObservable", config.fullyObservable)
   node.readConfigInt("pursuerAccelPct", config.pursuerAccelPct)
@@ -1162,14 +1158,11 @@ proc configJson*(config: GameConfig): string =
     node["shadowStandoffPx"] = %config.shadowStandoffPx
     node["evadeProbePx"] = %config.evadeProbePx
     node["symbolCount"] = %config.symbolCount
-    node["maxOutputTokens"] = %config.maxOutputTokens
     node["regimes"] = (block:
       var arr = newJArray()
       for regime in config.regimes:
         arr.add(%regimeText(regime))
       arr)
-    if config.model.len > 0:
-      node["model"] = %config.model
   # sprayDamage acts in every mode (the spray cone reads it wherever it
   # fires), so like puddleDamagePct it is pinned whenever it departs from
   # its default even with the inherited gates off.
@@ -1230,4 +1223,3 @@ proc configJson*(config: GameConfig): string =
   if config.mapSpec.len > 0:
     node["mapSpec"] = fromJson(config.mapSpec)
   $node
-

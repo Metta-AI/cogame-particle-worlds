@@ -23,9 +23,8 @@ Both are produced by the same server from the same sim, so live and replay are i
 
 `COGAME_CONFIG_URI`, `COGAME_RESULTS_URI`, `COGAME_SAVE_REPLAY_URI`,
 `COGAME_PLAYER_FAILURE_URI`, `COGAME_LOAD_REPLAY_URI`, `COGAME_EVENTS_URI`,
-`COGAME_METRICS_URI`, `COGAME_HOST`, `COGAME_PORT`. The game container also reads
-`ANTHROPIC_API_KEY_URI` (`secret://coworld/particle-worlds/anthropic_api_key`) — the decision
-layer runs **in the game server**, so that is the only container that needs a key.
+`COGAME_METRICS_URI`, `COGAME_HOST`, `COGAME_PORT`. The game receives no model
+credential. External player containers own prompt or Jev calls.
 
 ---
 
@@ -39,30 +38,43 @@ whose slot is not the next open one is not admitted until the lower slots have j
 holds an unappliable registration and re-reads it when the slot lands.
 
 ```json
-{"type":"register","prompt":"<strategy text or empty>",
+{"type":"register","kind":"external"|"scripted",
  "scripted":"drifter"|"beeline"|null,"policy":"<free label>"}
 ```
 
-The prompt is a **secret**: it is consumed as registration, never applied as a bubble and never
-written to the replay. What the replay gets is a redacted `register` record — the policy label and
-kind only. Any other chat text from a seat is dropped: particles emit symbols, seats do not chat.
+The prompt stays in the player process. The replay gets only the policy label
+and kind. Any other Sprite chat text from a seat is dropped.
 
 A seat that never registers, or registers with neither field, is `scripted: "drifter"`.
 
 ### What a seat sends and receives
 
-A seat **sends no inputs at all** — every actuator mask is computed by the server's control layer.
-It sends the Sprite v1 Ready packet (`0x85`) after each received frame, which is legitimate
+A seat sends a complete squad directive in a JSON text response to each
+private `turn` text frame. The game validates and compiles that directive into
+actuator masks. The seat sends no input masks. It sends the Sprite v1 Ready
+packet (`0x85`) after each binary frame, which is legitimate
 precisely because it never dead-reckons an input of its own, and it lets a `fastMode` server
 advance as soon as every seat has acknowledged the frame.
 
-The frame a seat receives is the inherited Sprite v1 stream: the static board, the walkability
+The binary frame a seat receives is the inherited Sprite v1 stream: the static board, the walkability
 sprite, all four particles, all four marks, and the four symbol bubbles. With
 `fullyObservable: true` the per-seat visibility mask is **all-visible**: MPE is a fully observable
 environment, so hiding positions would add a search puzzle the game never asks for and subtract the
 one it does — inference from behaviour and from symbols.
 
-### The per-seat view the decision layer builds
+At each decision boundary the game also sends one JSON text frame:
+
+```json
+{"type":"turn","id":7,"turn":2,"view":{"you":{"id":"BLUE-alpha"}},
+ "retry":false,"timeout_seconds":6}
+```
+
+The player replies with `{"type":"decision","id":7,"action":{"note":"…","cogs":[…]}}`.
+The `id` ties the response to this request. A player that cannot decide sends
+`cause` and `error` instead of `action`; the game records a fallback and may
+retry once. The game sends all four private views before waiting for replies.
+
+### The per-seat view sent to the player
 
 Numbers are map pixels, rounded to integers. This is a `crypto` round as Bob:
 
@@ -110,8 +122,8 @@ and then the scripted fallback fire.
 
 Every recorded string is truncated on **rune** (Unicode codepoint) boundaries, never bytes:
 `note` ≤ 160 runes, `register.policy` ≤ 48, `fallback.detail` ≤ 200, the whole serialized
-`directive` record ≤ 900, and `register.prompt` ≤ 4000 at the transport (truncated, never
-rejected, and never written to the replay or the results).
+`directive` record ≤ 900. The prompt stays in the player process and is never
+written to the replay or results.
 
 ---
 

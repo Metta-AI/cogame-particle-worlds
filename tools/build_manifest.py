@@ -77,8 +77,6 @@ CONSTANTS = {
     "shadowStandoffPx": 60,
     "evadeProbePx": 200,
     "symbolCount": 8,
-    "model": "",
-    "maxOutputTokens": 900,
 }
 
 MODES = ["spread", "deceive", "crypto", "tag"]
@@ -165,7 +163,6 @@ def scalar_schema() -> dict:
         "shadowStandoffPx": (1, 1200),
         "evadeProbePx": (1, 1200),
         "symbolCount": (4, 8),
-        "maxOutputTokens": (1, 8192),
     }
     props: dict = {}
     for name, (lo, hi) in ints.items():
@@ -182,11 +179,6 @@ def scalar_schema() -> dict:
         "enum": ["field"],
         "default": "field",
         "description": "The hand-authored particle-worlds board: border walls only.",
-    }
-    props["model"] = {
-        "type": "string",
-        "default": "",
-        "description": "Pin one Bedrock model id; empty means walk the candidate list.",
     }
     return props
 
@@ -388,13 +380,6 @@ def manifest() -> dict:
                 "type": "game",
                 "image": IMAGE_PLACEHOLDER,
                 "run": ["/bin/particle-worlds"],
-                # MANDATORY: without it the hosted game container never sees the coworld secret
-                # and every league episode silently plays scripted (the hive 2026-08-23 scar).
-                # The namespace is game.name exactly (the cooperative-hunting 2026-08-25 scar).
-                "env": {
-                    "ANTHROPIC_API_KEY_URI":
-                        f"secret://coworld/{SLUG}/anthropic_api_key"
-                },
                 "source_url": SOURCE_URL,
             },
             "config_schema": config_schema(),
