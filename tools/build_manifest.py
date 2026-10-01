@@ -391,10 +391,7 @@ def manifest() -> dict:
                 # MANDATORY: without it the hosted game container never sees the coworld secret
                 # and every league episode silently plays scripted (the hive 2026-08-23 scar).
                 # The namespace is game.name exactly (the cooperative-hunting 2026-08-25 scar).
-                "env": {
-                    "ANTHROPIC_API_KEY_URI":
-                        f"secret://coworld/{SLUG}/anthropic_api_key"
-                },
+                "env": {},
                 "source_url": SOURCE_URL,
             },
             "config_schema": config_schema(),
