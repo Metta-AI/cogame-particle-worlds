@@ -194,7 +194,7 @@ suite "the manifest":
     check "particle_worlds:" in compose
     check "image: coworld-particle-worlds:latest" in compose
     check "platform: linux/amd64" in compose
-    check "network: host" in compose
+    check "network: host" notin compose
     check manifest["game"]["runnable"]["image"].getStr() ==
       "{{PARTICLE_WORLDS_IMAGE}}"
     for player in manifest["player"]:
