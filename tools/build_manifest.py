@@ -233,6 +233,16 @@ def config_schema() -> dict:
             "default": MODES,
         },
     }
+    props["promptVariant"] = {
+        "type": "string", "default": "canonical",
+        "enum": ["canonical", "plain", "numbered", "questions", "reordered",
+                 "heldout-briefing", "heldout-reference", "mixed"],
+        "description": "Episode-stable mechanics wording; heldout selections are evaluation-only.",
+    }
+    props["promptSeed"] = {
+        "type": "integer", "minimum": 0, "default": 0,
+        "description": "Independent wording seed, required explicitly with mixed selection.",
+    }
     props.update(scalar_schema())
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

@@ -10,7 +10,7 @@
 ## a judgement call.
 
 import std/[json, strutils, unittest]
-import ../src/mpe/[sim, broadcast, control, directives, decide, llm]
+import ../src/mpe/[sim, broadcast, control, directives, decide, llm, prompts]
 import fixture
 
 const Sentinel = "SENTINEL-POLICY-ADDRESS"
@@ -32,7 +32,7 @@ suite "the two name spaces":
   test "a seat's view carries only aliases, never a policy address":
     for mode in Mode:
       var sim = sentinelSim(mode)
-      var engine = initDecisionEngine(sim)
+      var engine = initDecisionEngine(sim, PromptSelection())
       for seat in 0 ..< 4:
         let text = engine.seatViewJson(sim, seat, 2, 10)
         check Sentinel notin text
@@ -44,7 +44,7 @@ suite "the two name spaces":
 
   test "neither LLM message carries a policy address or another seat's note":
     var sim = sentinelSim(modeCrypto)
-    var engine = initDecisionEngine(sim)
+    var engine = initDecisionEngine(sim, PromptSelection())
     for seat in 0 ..< 4:
       engine.seats[seat].prompt = "OPERATOR-PROMPT-" & $seat
       engine.seats[seat].isLlm = true
@@ -53,7 +53,7 @@ suite "the two name spaces":
         orders: @[CogOrder(cogIndex: seat, id: sim.cogAlias(seat),
                            intent: intHold, targetX: 1, targetY: 1)])
       engine.haveDirective[seat] = true
-    check Sentinel notin SystemPrompt
+    check Sentinel notin systemPrompt(PromptSelection())
     for seat in 0 ..< 4:
       let user = userMessage(
         engine.seats[seat].prompt,

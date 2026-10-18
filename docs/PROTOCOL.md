@@ -240,3 +240,16 @@ schema is `additionalProperties: false`. Exactly 22 keys; see the manifest and
 `bumps` is the **last round's** bump ticks per seat, not an episode total: the counter is zeroed at
 the start of every round because the `spread` debit is a per-round term. Every other seat-indexed
 array (`roundScores`, `llmTurns`, `fallbackTurns`, `means`) is per episode.
+
+## Private prompt evidence
+
+`promptVariant` and `promptSeed` select an episode-stable mechanics introduction. Selection does not
+enter simulation state, the physics hash, or positional replay keyframes. Operator prompt bytes,
+role entitlements, and the native reply parser retain their existing behavior.
+
+For private native diagnostics, set `PARTICLE_HOST_TRACE_PATH`, `PARTICLE_ATTEMPT_TRACE_DIR`, and
+`PARTICLE_SOURCE_REVISION` to a clean source revision. Host records join applied directives to
+attempt IDs. Attempt records retain exact request bodies, rendered prompt hashes, provider replies,
+response headers, parser output, retries, and selection. Files are exclusively created with mode
+0600; these paths are never included in public replay uploads. These raw captures require validation
+and independent review before any training use.

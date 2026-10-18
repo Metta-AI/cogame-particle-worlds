@@ -24,7 +24,7 @@ import
   std/[json, os, strutils, unicode],
   bitworld/runtime,
   curly,
-  sim_types, directives
+  sim_types, directives, prompts
 
 const
   AnthropicUrl = "https://api.anthropic.com/v1/messages"
@@ -218,10 +218,9 @@ proc textOf*(
     raise newException(LlmError, "reply cut off at max_tokens before any " &
       "JSON: " & result.truncateRunes(160).replace("\n", " "))
 
-const SystemPrompt* = """
-You are ONE particle on a flat field 1235 by 659 pixels, with four coloured
-marks on it (amber, teal, violet, bone). Four particles play: RED, BLUE, GREEN
-and YELLOW. You accelerate; you do not teleport. You cruise at about 94 pixels
+const CanonicalIntroduction = "You are ONE particle on a flat field 1235 by 659 pixels, with four coloured\nmarks on it (amber, teal, violet, bone). Four particles play: RED, BLUE, GREEN\nand YELLOW. "
+
+const Rules = """You accelerate; you do not teleport. You cruise at about 94 pixels
 per second and it takes you about a second to turn a drift around. The walls
 bounce you. Bumping another particle bounces you both.
 An episode is FOUR ROUNDS of 45 seconds. Every 4.5 seconds you issue ONE order
@@ -270,6 +269,18 @@ pursuer, where it closes on the evader to contact range (10 pixels) whatever
 `target` says; evade = drive away from the nearest particle, staying inside the
 walls; orbit = circle `target` at 120 pixels. `face` only turns your sprite. `symbol` is BROADCAST.
 """
+
+proc systemPrompt*(selection: PromptSelection): string =
+  let introduction = case selection.selectedVariant
+    of pvCanonical: CanonicalIntroduction
+    of pvPlain: "You control one of four particles, named RED, BLUE, GREEN and YELLOW. The flat field measures 1235 by 659 pixels and contains four coloured marks: amber, teal, violet and bone. "
+    of pvNumbered: "1. Control ONE particle among four: RED, BLUE, GREEN and YELLOW.\n2. The flat playing field is 1235 by 659 pixels.\n3. It contains four coloured marks: amber, teal, violet and bone. "
+    of pvQuestions: "What do you control? One of four particles: RED, BLUE, GREEN and YELLOW. Where do you play? On a flat 1235 by 659 pixel field with four coloured marks: amber, teal, violet and bone. "
+    of pvReordered: "Four coloured marks (amber, teal, violet and bone) lie on a flat field measuring 1235 by 659 pixels. Four particles play there: RED, BLUE, GREEN and YELLOW. You control ONE of those particles. "
+    of pvHeldoutBriefing: "Your assignment is one particle in a four-particle game. The particles are RED, BLUE, GREEN and YELLOW. Play takes place on a flat field, 1235 by 659 pixels, with four marks coloured amber, teal, violet and bone. "
+    of pvHeldoutReference: "Control: one particle. Participants: RED, BLUE, GREEN, YELLOW (four particles). Arena: a flat 1235 by 659 pixel field. Landmarks: four coloured marks, amber, teal, violet and bone. "
+    of pvMixed: raise newException(ValueError, "mixed selection must resolve to a training wording")
+  introduction & Rules
 
 proc operatorBlock*(prompt: string): string =
   ## The seat's own PLAYER_PROMPT, under a heading that tells the model how

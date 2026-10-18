@@ -163,12 +163,17 @@ suite "the manifest":
     let
       schema = manifest["game"]["config_schema"]["properties"]
       source = sourceOf("src/mpe/sim_config.nim")
-    ## Every declared property must be a field `sim_config.update` really
-    ## reads, so a manifest cannot offer a knob the engine ignores.
+    ## Every declared property must be read by its owning configuration parser.
+    ## Prompt selection belongs to the decision engine, outside replay physics.
     for name in schema.keys:
       if name in ["tokens", "players", "slots"]:
         continue                       ## read by the roster readers
-      check ("\"" & name & "\"") in source
+      let reader =
+        if name in ["promptVariant", "promptSeed"]:
+          sourceOf("src/mpe/prompts.nim")
+        else:
+          source
+      check ("\"" & name & "\"") in reader
     ## And every constant the design pins must be offered.
     for name in ["rounds", "num_agents", "minPlayers", "teams", "cogsPerTeam",
                  "maxTicks", "maxGames", "turnTicks", "turnBudgetMs",
