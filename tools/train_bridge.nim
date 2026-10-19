@@ -202,7 +202,9 @@ when isMainModule:
     of "reset":
       doAssert request["players"].getInt() == 4
       selection = promptSelection(request)
-      if request["split"].getStr() == "train" and selection.selectedVariant in
+      let split = if request.hasKey("split"): request["split"].getStr() else: "train"
+      doAssert split in ["train", "validation", "test"]
+      if split == "train" and selection.selectedVariant in
           {pvHeldoutBriefing, pvHeldoutReference}:
         raise newException(ValueError, "held-out wording cannot enter training")
       var config = defaultGameConfig()

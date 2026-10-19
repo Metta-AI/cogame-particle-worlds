@@ -111,13 +111,13 @@ def main() -> None:
                     count += 1
                 print(variant, "text" if text_mode else "numeric", seed, "12 complete games PASS", flush=True)
     for wording in ("heldout-briefing", "heldout-reference"):
+        reset = {"kind": "reset", "players": 4, "seed": "heldout-guard", "promptVariant": wording}
+        if wording == "heldout-reference":
+            reset["split"] = "train"
         rejected = subprocess.run(
             [str(args.binary.resolve()), str(manifest), "default", "text"],
             check=False,
-            input=json.dumps(
-                {"kind": "reset", "players": 4, "seed": "heldout-guard", "split": "train", "promptVariant": wording}
-            )
-            + "\n",
+            input=json.dumps(reset) + "\n",
             text=True,
             capture_output=True,
             timeout=10,
