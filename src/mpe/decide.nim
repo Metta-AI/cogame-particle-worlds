@@ -22,7 +22,7 @@
 import
   std/[json, math, monotimes, os, strutils, times],
   curly,
-  sim, control, directives, baselines, llm, prompts, evidence
+  sim, control, directives, baselines, llm, prompts
 
 type
   SeatPolicy* = object
@@ -35,8 +35,6 @@ type
     registered*: bool
 
   DecisionEngine* = object
-    attemptIds*: seq[seq[string]]
-    selectedAttemptIds*: seq[string]
     selection*: PromptSelection
     client*: LlmClient
     ctl*: ControlState
@@ -372,9 +370,6 @@ proc turn*(
   let
     roundIndex = sim.roundIndex + 1
     budget = initDuration(milliseconds = max(1, sim.config.turnBudgetMs))
-  engine.attemptIds = newSeq[seq[string]](engine.seats.len)
-  engine.selectedAttemptIds = newSeq[string](engine.seats.len)
-  let captureDir = getEnv("PARTICLE_ATTEMPT_TRACE_DIR")
   ## The per-turn monotonic deadline. It clocks the CALLS, and it is (re)started
   ## below, after the rate floor's wait -- see the rate floor for why.
   var turnStart = getMonoTime()
@@ -496,24 +491,8 @@ proc turn*(
         user.add("\n\nYour previous reply was not usable. Reply with ONLY " &
           "the JSON object described above, starting with '{', with exactly " &
           "one \"cogs\" entry, for yourself.")
-      let system = systemPrompt(engine.selection)
-      let renderedUser = userMessage(engine.seats[seat].prompt, user)
-      let request = engine.client.requestFor(system, renderedUser, seat)
-      let attemptId = "round-" & $roundIndex & "-turn-" & $turnIndex &
-        "-seat-" & $seat & "-attempt-" & $(attempt + 1)
-      engine.attemptIds[seat].add(attemptId)
-      if captureDir.len > 0:
-        writePrivate(captureDir / (attemptId & ".jsonl"), $(%*{
-          "schema_version": 1, "event_type": "attempt_started", "visibility": "private",
-          "attempt_id": attemptId, "round": roundIndex, "turn": turnIndex, "seat": seat,
-          "source_revision": getEnv("PARTICLE_SOURCE_REVISION"),
-          "prompt_configuration": engine.selection.promptMetadata(system, renderedUser),
-          "prompt": [{"role": "system", "content": system},
-            {"role": "user", "content": renderedUser}],
-          "request": {"body": parseJson(request.body), "url": request.url,
-            "max_output_tokens": engine.client.maxOutputTokens},
-          "behavior_logprobs": newJNull()
-        }) & "\n")
+      let request = engine.client.requestFor(
+        systemPrompt(engine.selection), userMessage(engine.seats[seat].prompt, user), seat)
       batch.post(request.url, request.headers, request.body, $seat)
     let started = getMonoTime()
     # curly hands the deadline to CURLOPT_TIMEOUT, whose granularity is WHOLE
@@ -531,11 +510,8 @@ proc turn*(
     var stillOpen: seq[int]
     for position, seat in open:
       var cause = "parse_error"
-      var responseText, failure: string
-      var proposal = newJNull()
-      var normalized = newJNull()
       try:
-        responseText = engine.client.textOf(
+        let text = engine.client.textOf(
           responses[position].response, responses[position].error,
           batch[position].url)
         let commanded = sim.commandedCogs(seat)
@@ -543,20 +519,15 @@ proc turn*(
         for cogIndex in commanded:
           ids.add(sim.cogAlias(cogIndex))
         let (fx, fy) = centreOfField()
-        proposal = extractJsonObject(responseText)
         var directive = parseSquadDirective(
-          proposal, ids, commanded,
+          extractJsonObject(text), ids, commanded,
           fx, fy, MapWidth - 1, MapHeight - 1)
         directive.source = dsLlm
         directive.latencyMs = latency
         engine.repairMissingOrders(sim, seat, directive)
         engine.directives[seat] = directive
         engine.haveDirective[seat] = true
-        engine.selectedAttemptIds[seat] = engine.attemptIds[seat][^1]
-        normalized = parseJson(directive.boundedDirectiveRecord(roundIndex, turnIndex,
-          seat, $sim.mode, sim.cogAlias(seat), roleName(sim.mode, sim.roleIndex[seat])))
       except CatchableError as error:
-        failure = error.msg
         if responses[position].error.len > 0:
           cause = (if "timeout" in responses[position].error.toLowerAscii():
                      "timeout" else: "transport_error")
@@ -572,20 +543,6 @@ proc turn*(
         echo "particle-worlds llm: seat ", seat, " attempt ", attempt + 1,
           " failed, falling back if it fails again: ", error.msg
         stillOpen.add(seat)
-      if captureDir.len > 0:
-        var responseHeaders = newJObject()
-        for header in responses[position].response.headers:
-          responseHeaders[header[0]] = %header[1]
-        appendPrivate(captureDir / (engine.attemptIds[seat][^1] & ".jsonl"), %*{
-          "schema_version": 1, "event_type": "attempt_finished", "visibility": "private",
-          "attempt_id": engine.attemptIds[seat][^1], "latency_ms": latency,
-          "http_status": responses[position].response.code,
-          "raw_response": responses[position].response.body,
-          "response_headers": responseHeaders, "response": responseText,
-          "transport_error": responses[position].error, "failure": failure,
-          "parsed_action": proposal, "normalized_action": normalized,
-          "selected": seat notin stillOpen, "behavior_logprobs": newJNull()
-        })
     open = stillOpen
     inc attempt
     if engine.client.throttled and open.len > 0:

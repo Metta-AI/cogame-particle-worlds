@@ -5,7 +5,7 @@ import
   bitworld/runtime,
   curly, mummy,
   sim, global, replays, broadcast, replay_runtime, events, wire_constants,
-  control, directives, baselines, decide, prompts, llm, evidence
+  control, directives, baselines, decide, prompts
 
 when defined(posix):
   from std/posix import SHUT_RDWR, shutdown
@@ -1367,14 +1367,6 @@ proc runServerLoop*(
   # joins carrying only the cogs' ANONYMOUS aliases, and from then on every
   # actuator mask comes from the control layer rather than from a socket.
   let squadMode = not replayLoaded and config.numAgents > 0
-  let hostTrace = getEnv("PARTICLE_HOST_TRACE_PATH")
-  if hostTrace.len > 0:
-    doAssert not replayLoaded, "private capture requires a live game"
-    writePrivate(hostTrace, $(%*{
-      "schema_version": 1, "event_type": "host_started", "visibility": "private",
-      "source_revision": getEnv("PARTICLE_SOURCE_REVISION"),
-      "prompt_configuration": selection.selectionMetadata(), "seed": config.seed
-    }) & "\n")
   var
     engine =
       if squadMode: initDecisionEngine(sim, selection) else: DecisionEngine()
@@ -1956,10 +1948,6 @@ proc runServerLoop*(
         lastTurnKey = turnKey
         let turnsPerRound =
           if config.maxTicks > 0: max(1, config.maxTicks div turnTicks) else: 0
-        var privateViews: seq[JsonNode]
-        if hostTrace.len > 0:
-          for seat in 0 ..< engine.seats.len:
-            privateViews.add(parseJson(engine.seatViewJson(sim, seat, turnIndex, turnsPerRound)))
         let records = engine.turn(sim, turnIndex, turnsPerRound, elapsedSeconds)
         for record in records:
           replayWriter.writeChat(tickTime(sim.tickCount), 0, record)
@@ -1967,22 +1955,6 @@ proc runServerLoop*(
           if not engine.haveDirective[seat]:
             continue
           let directive = engine.directives[seat]
-          if hostTrace.len > 0:
-            let system = systemPrompt(selection)
-            let user = userMessage(engine.seats[seat].prompt, $privateViews[seat])
-            let applied = parseJson(directive.boundedDirectiveRecord(sim.roundIndex + 1,
-              turnIndex, seat, $sim.mode, sim.cogAlias(seat), roleName(sim.mode, sim.roleIndex[seat])))
-            appendPrivate(hostTrace, %*{
-              "schema_version": 1, "event_type": "host_decision", "visibility": "private",
-              "round": sim.roundIndex + 1, "turn": turnIndex, "seat": seat, "tick": sim.tickCount,
-              "observation": privateViews[seat], "source": $directive.source,
-              "prompt_configuration": selection.promptMetadata(system, user),
-              "prompt": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-              "attempt_ids": engine.attemptIds[seat],
-              "selected_attempt_id": (if engine.selectedAttemptIds[seat].len > 0:
-                %engine.selectedAttemptIds[seat] else: newJNull()),
-              "executed_action": {"cogs": applied["cogs"], "note": directive.note}
-            })
           case directive.source
           of dsLlm: inc sim.llmTurns[min(seat, sim.llmTurns.high)]
           of dsFallback: inc sim.fallbackTurns[min(seat, sim.fallbackTurns.high)]
@@ -2299,11 +2271,6 @@ proc runServerLoop*(
         writeFile(eventsPath, collectedEvents.eventsJsonl(sim.tickCount))
         echo "Events written: ", eventsPath,
           " (", collectedEvents.len, " events, ", getFileSize(eventsPath), " bytes)"
-      if hostTrace.len > 0:
-        appendPrivate(hostTrace, %*{
-          "schema_version": 1, "event_type": "host_finished", "visibility": "private",
-          "results": parseJson(sim.playerResultsJson())
-        })
       if runtimeConfig.resultsUri.len > 0:
         let scoresJson = sim.playerResultsJson() & "\n"
         runtimeConfig.writeResults(scoresJson)

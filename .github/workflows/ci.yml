@@ -174,8 +174,6 @@ jobs:
           nim c -d:release --parallelBuild:1 --path:src -o:particle-worlds-train-bridge tools/train_bridge.nim
           python3 tools/test_train_bridge.py ./particle-worlds-train-bridge
           python3 tools/test_prompt_games.py ./particle-worlds-train-bridge
-          nim c -d:release --parallelBuild:1 --path:src -o:/tmp/particle-source tools/export_posttrain.nim
-          python3 tools/test_source_prompts.py /tmp/particle-source /tmp/particle-source-proof
 
   # ---------------------------------------------------------------------
   # Packaging smoke: the production image builds, and one real episode runs

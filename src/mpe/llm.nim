@@ -255,7 +255,9 @@ TAG: one EVADER, three PURSUERS. The evader is faster (94 px/s against 70) and
 scores for every tick no pursuer is within 20 pixels of it. Each pursuer scores
 for the ticks it is itself within 20 pixels, and needs 5 seconds of contact for
 a full score. The marks are decoration in this round; the walls are not.
-Reply with a single JSON object and NOTHING else. Your reply MUST begin with '{'.
+"""
+
+const ReplyRules = """Reply with a single JSON object and NOTHING else. Your reply MUST begin with '{'.
 Schema:
 {"note":"<=160 chars, audience only","cogs":[{"id":"<your own id>",
   "intent":"go|hold|cover|shadow|evade|orbit",
@@ -271,16 +273,45 @@ walls; orbit = circle `target` at 120 pixels. `face` only turns your sprite. `sy
 """
 
 proc systemPrompt*(selection: PromptSelection): string =
-  let introduction = case selection.selectedVariant
-    of pvCanonical: CanonicalIntroduction
-    of pvPlain: "You control one of four particles, named RED, BLUE, GREEN and YELLOW. The flat field measures 1235 by 659 pixels and contains four coloured marks: amber, teal, violet and bone. "
-    of pvNumbered: "1. Control ONE particle among four: RED, BLUE, GREEN and YELLOW.\n2. The flat playing field is 1235 by 659 pixels.\n3. It contains four coloured marks: amber, teal, violet and bone. "
-    of pvQuestions: "What do you control? One of four particles: RED, BLUE, GREEN and YELLOW. Where do you play? On a flat 1235 by 659 pixel field with four coloured marks: amber, teal, violet and bone. "
-    of pvReordered: "Four coloured marks (amber, teal, violet and bone) lie on a flat field measuring 1235 by 659 pixels. Four particles play there: RED, BLUE, GREEN and YELLOW. You control ONE of those particles. "
-    of pvHeldoutBriefing: "Your assignment is one particle in a four-particle game. The particles are RED, BLUE, GREEN and YELLOW. Play takes place on a flat field, 1235 by 659 pixels, with four marks coloured amber, teal, violet and bone. "
-    of pvHeldoutReference: "Control: one particle. Participants: RED, BLUE, GREEN, YELLOW (four particles). Arena: a flat 1235 by 659 pixel field. Landmarks: four coloured marks, amber, teal, violet and bone. "
-    of pvMixed: raise newException(ValueError, "mixed selection must resolve to a training wording")
-  introduction & Rules
+  if selection.selectedVariant == pvCanonical:
+    return CanonicalIntroduction & Rules & ReplyRules
+  let field = "Control one particle among RED, BLUE, GREEN and YELLOW on a 1235 by 659 pixel field. " &
+    "The four marks are amber, teal, violet and bone. Motion accelerates rather than teleporting; " &
+    "cruising speed is about 94 pixels/second, and reversing a drift takes about a second. " &
+    "Walls bounce particles, and particle collisions bounce both participants."
+  let timing = "An episode contains four 45-second rounds. Every 4.5 seconds, submit one order " &
+    "for yourself. A deterministic controller handles movement and facing until your next order. " &
+    "There are no weapons and you never command motors directly. The report identifies the current round and your role."
+  let radio = "Your only communication to other particles is one broadcast symbol: A through H, " &
+    "or '-' for silence. All particles hear it instantly regardless of distance. Symbols have no " &
+    "inherent meaning; their meaning is established within the round. Your note is audience-only " &
+    "and never visible to another particle."
+  let spread = "SPREAD: All four particles cooperate. Score averages landmark coverage over every " &
+    "tick, with a small penalty for each tick touching another particle. Occupying four distinct " &
+    "marks gives perfect coverage; crowding one mark does not. No particle is assigned a mark, " &
+    "so coordinate assignments, using symbols if helpful."
+  let deceive = "DECEIVE: Three good agents know the goal mark; the adversary does not. The good " &
+    "side earns for occupying the goal and keeping the adversary far away. The adversary earns " &
+    "for occupying the goal, and the two sides' scores sum to 1.000 each tick. It sees movement " &
+    "and hears every symbol: heading directly to the goal reveals it, while movement can also bait it elsewhere."
+  let crypto = "CRYPTO: The immobile speaker knows the goal. The mobile listener shares the speaker's " &
+    "private symbol-to-colour key. Two mobile eavesdroppers hear all symbols but lack the key. " &
+    "Speaker and listener earn for the listener reaching the goal while both eavesdroppers stay far " &
+    "away; each eavesdropper earns for reaching the goal itself. The key changes each round, " &
+    "so symbol meanings are secret, but following the listener can expose the destination."
+  let tag = "TAG: One evader moves at 94 pixels/second; three pursuers move at 70. The evader " &
+    "earns each tick with no pursuer within 20 pixels. Each pursuer earns for its own ticks " &
+    "within 20 pixels, reaching full score after five seconds of contact. Marks do not matter " &
+    "in this round, but walls still constrain movement."
+  let briefing = case selection.selectedVariant
+    of pvPlain: field & "\n\n" & timing & "\n\n" & radio & "\n\n" & spread & "\n\n" & deceive & "\n\n" & crypto & "\n\n" & tag
+    of pvNumbered: "1. Field\n" & field & "\n2. Orders\n" & timing & "\n3. Radio\n" & radio & "\n4. Cooperation\n" & spread & "\n5. Deception\n" & deceive & "\n6. Secret communication\n" & crypto & "\n7. Pursuit\n" & tag
+    of pvQuestions: "How do I act?\n" & timing & "\nWhere do I move?\n" & field & "\nWhat can others hear?\n" & radio & "\nWhat pays in each round?\n" & spread & "\n" & deceive & "\n" & crypto & "\n" & tag
+    of pvReordered: "ROUND PAYOFFS\n" & spread & "\n" & deceive & "\n" & crypto & "\n" & tag & "\nCOMMUNICATION\n" & radio & "\nACTION TIMING\n" & timing & "\nMOTION\n" & field
+    of pvHeldoutBriefing: "Read your assignment.\n" & field & "\nSchedule your decisions.\n" & timing & "\nAccount for information.\n" & radio & "\nApply the active objective.\n" & tag & "\n" & crypto & "\n" & deceive & "\n" & spread
+    of pvHeldoutReference: "Communication reference: " & radio & "\nMotion reference: " & field & "\nDecision reference: " & timing & "\nRound reference:\n" & crypto & "\n" & spread & "\n" & tag & "\n" & deceive
+    of pvCanonical, pvMixed: raise newException(ValueError, "alternate wording must resolve")
+  briefing & "\n\n" & ReplyRules
 
 proc operatorBlock*(prompt: string): string =
   ## The seat's own PLAYER_PROMPT, under a heading that tells the model how

@@ -241,15 +241,10 @@ schema is `additionalProperties: false`. Exactly 22 keys; see the manifest and
 the start of every round because the `spread` debit is a per-round term. Every other seat-indexed
 array (`roundScores`, `llmTurns`, `fallbackTurns`, `means`) is per episode.
 
-## Private prompt evidence
+## Prompt selection
 
-`promptVariant` and `promptSeed` select an episode-stable mechanics introduction. Selection does not
-enter simulation state, the physics hash, or positional replay keyframes. Operator prompt bytes,
-role entitlements, and the native reply parser retain their existing behavior.
-
-For private native diagnostics, set `PARTICLE_HOST_TRACE_PATH`, `PARTICLE_ATTEMPT_TRACE_DIR`, and
-`PARTICLE_SOURCE_REVISION` to a clean source revision. Host records join applied directives to
-attempt IDs. Attempt records retain exact request bodies, rendered prompt hashes, provider replies,
-response headers, parser output, retries, and selection. Files are exclusively created with mode
-0600; these paths are never included in public replay uploads. These raw captures require validation
-and independent review before any training use.
+`promptVariant` and `promptSeed` select an episode-stable complete rules presentation.
+Selection stays outside simulation state, the physics hash, and positional replay keyframes.
+Native calls, source exports, and the training bridge share the same renderer. Operator
+prompts, legal directives, observations, and retry behavior remain unchanged. Bridge and
+export metadata record the selected bank and exact system/user message hashes.

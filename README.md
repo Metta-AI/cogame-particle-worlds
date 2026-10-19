@@ -123,24 +123,26 @@ particles, landmarks, a discrete comm channel and the four scenario motives — 
 ## Episode prompt diversity
 
 The game accepts `promptVariant`: `canonical`, `plain`, `numbered`, `questions`, `reordered`,
-`heldout-briefing`, `heldout-reference`, or `mixed`. `canonical` preserves the original prompt bytes.
+`heldout-briefing`, `heldout-reference`, or `mixed`. The `particle-worlds-rules-v2` bank varies complete motion,
+communication, timing, and round-payoff explanations. `canonical` preserves the original prompt bytes.
 `mixed` requires an explicit nonnegative `promptSeed` and selects one of the five training wordings
 using `promptSeed % 5`. This seed is independent of physics, role, and landmark randomness.
 The selection stays fixed across all four rounds, seats, and retries.
 
-Only the introductory description changes. Operator strategies, anonymous aliases, private goals and
+Complete rules vary in phrasing and section order. Operator strategies, anonymous aliases, private goals and
 keys, mode rules, and reply formats keep their existing behavior. Selection stays outside the
 simulation and replay keyframe layout.
 
 The JSONL bridge accepts these fields on reset. Append `text` to its command to use native directive
 responses through the real parser. Numeric mode retains its factored action interface. Training
-resets reject held-out introductions. Both modes expose selection and exact system/user SHA-256
+resets reject held-out wording. Both modes expose selection and exact system/user SHA-256
 hashes in `semantic_view.prompt_template`.
 
-The source exporter accepts `OUTPUT EPISODES [FIRST_SEED] [VARIANT] [PROMPT_VARIANT] [PROMPT_SEED]`.
-It requires a clean committed checkout and emits private `trajectories.jsonl` candidates instead of
-ready-to-train examples. Shared Coworld validation and independent content-bound review own admission.
-Seed families remain identical across wording and game variants; both held-out wordings are rejected.
+The source exporter accepts `OUTPUT EPISODES [FIRST_SEED] [VARIANT] [PROMPT_VARIANT PROMPT_SEED]`.
+It retains the original train/validation JSONL and manifest. Every fifth scenario is validation;
+mixed exports cycle separately within each split so all five presentations reach training.
+Scenario families use `particle-worlds-SEED` across variants. Exact message hashes accompany each row.
+Run from clean committed source so revision pins identify the exported code. Review corpora before training.
 
 For matched evaluation, hold policies, game seeds, operator prompts, decoder settings, and published
 budgets fixed. Compare canonical and mixed training on both training wordings and held-out wordings.

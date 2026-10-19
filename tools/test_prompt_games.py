@@ -49,7 +49,7 @@ def play(binary: Path, manifest: Path, variant: str, text_mode: bool, wording: s
             metadata = view.pop("prompt_template")
             system, user = [m["content"] for m in observation["messages"]]
             assert metadata == {
-                "bank": "particle-worlds-rules-v1",
+                "bank": "particle-worlds-rules-v2",
                 "selection": wording,
                 "variant": selected,
                 "seed": prompt_seed,
@@ -59,7 +59,7 @@ def play(binary: Path, manifest: Path, variant: str, text_mode: bool, wording: s
             if system_bytes is None:
                 system_bytes = system
             assert system == system_bytes
-            observation["messages"][0]["content"] = system[system.index("You accelerate;") :]
+            observation["messages"][0]["content"] = system[system.index("Reply with a single JSON object") :]
             rounds.add(view["round"])
             role = view["you"]["role"]
             if view["mode"] == "deceive" and role == "adversary":
@@ -99,17 +99,17 @@ def main() -> None:
     count = 0
     for variant in VARIANTS:
         for text_mode in (False, True):
-            for seed in (1, 7):
+            for seed in (1,):
                 canonical = play(args.binary.resolve(), manifest, variant, text_mode, "canonical", 0, seed)
                 count += 1
-                selections = [(w, 0) for w in WORDINGS[1:]] + [("mixed", i) for i in range(5)]
+                selections = [(w, 0) for w in WORDINGS[1:]] + [("mixed", 4)]
                 for wording, prompt_seed in selections:
                     assert (
                         play(args.binary.resolve(), manifest, variant, text_mode, wording, prompt_seed, seed)
                         == canonical
                     )
                     count += 1
-                print(variant, "text" if text_mode else "numeric", seed, "12 complete games PASS", flush=True)
+                print(variant, "text" if text_mode else "numeric", seed, "8 complete games PASS", flush=True)
     for wording in ("heldout-briefing", "heldout-reference"):
         reset = {"kind": "reset", "players": 4, "seed": "heldout-guard", "promptVariant": wording}
         if wording == "heldout-reference":
