@@ -141,7 +141,7 @@ hashes in `semantic_view.prompt_template`.
 The source exporter accepts `OUTPUT EPISODES [FIRST_SEED] [VARIANT] [PROMPT_VARIANT PROMPT_SEED]`.
 It retains the original train/validation JSONL and manifest. Every fifth scenario is validation;
 mixed exports cycle separately within each split so all five presentations reach training.
-Scenario families use `particle-worlds-SEED` across variants. Episode IDs include selected wording and prompt seed
+Scenario families use `particle-worlds-SEED` across variants. Episode IDs include requested selection, resolved wording, and prompt seed
 to distinguish matched exports. Exact message hashes accompany each row.
 Run from clean committed source so revision pins identify the exported code. Review corpora before training.
 

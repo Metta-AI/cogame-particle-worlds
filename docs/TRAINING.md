@@ -40,14 +40,8 @@ one seed stay in the same train or validation split. The manifest records
 source revision, variant, scores, wins, and row counts. Existing output
 directories are never overwritten.
 
-Train with the shared Metta post-training pipeline:
-
-```sh
-nix develop -c uv run --package metta-posttrain --extra train \
-  python -m metta_posttrain.train --dataset /tmp/particle-worlds-default \
-  --output /tmp/particle-worlds-adapter --model Qwen/Qwen3-0.6B \
-  --max-steps 100 --max-length 4096
-```
+Use the [post-training research package](https://github.com/Metta-AI/posttraining-research/tree/main/packages/metta-posttraining)
+for current training and adapter-packaging workflows.
 
 Each local 10-game variant exported 1,280 train and 320 validation examples.
 All 8,000 examples fit a 4,096-token smoke model. One CPU optimizer update
