@@ -88,7 +88,8 @@ when isMainModule:
             doAssert parsed.orders[0].targetY == directive.orders[0].targetY
             doAssert parsed.orders[0].symbol == directive.orders[0].symbol
             rows.add($(%*{
-              "episode_id": "particle-worlds-" & variant & "-" & $seed,
+              "episode_id": "particle-worlds-" & variant & "-" & $seed & "-" &
+                $selection.selectedVariant & "-" & $selection.seed,
               "seed": "particle-worlds-" & $seed,
               "prompt_template": selection.promptMetadata(systemPrompt(selection), userMessage(OperatorPrompt, views[seat])),
               "decision_id":

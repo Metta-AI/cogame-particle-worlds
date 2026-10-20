@@ -123,13 +123,13 @@ particles, landmarks, a discrete comm channel and the four scenario motives — 
 ## Episode prompt diversity
 
 The game accepts `promptVariant`: `canonical`, `plain`, `numbered`, `questions`, `reordered`,
-`heldout-briefing`, `heldout-reference`, or `mixed`. The `particle-worlds-rules-v2` bank varies complete motion,
-communication, timing, and round-payoff explanations. `canonical` preserves the original prompt bytes.
+`heldout-briefing`, `heldout-reference`, or `mixed`. The `particle-worlds-rules-v3` bank varies complete motion,
+communication, timing, and round-payoff explanations. Every wording includes a shared scoring reference for partial proximity, opposing proximity, and round averaging.
 `mixed` requires an explicit nonnegative `promptSeed` and selects one of the five training wordings
 using `promptSeed % 5`. This seed is independent of physics, role, and landmark randomness.
 The selection stays fixed across all four rounds, seats, and retries.
 
-Complete rules vary in phrasing and section order. Operator strategies, anonymous aliases, private goals and
+Alternate and held-out presentations use independently phrased explanations and different section orders. Operator strategies, anonymous aliases, private goals and
 keys, mode rules, and reply formats keep their existing behavior. Selection stays outside the
 simulation and replay keyframe layout.
 
@@ -141,7 +141,8 @@ hashes in `semantic_view.prompt_template`.
 The source exporter accepts `OUTPUT EPISODES [FIRST_SEED] [VARIANT] [PROMPT_VARIANT PROMPT_SEED]`.
 It retains the original train/validation JSONL and manifest. Every fifth scenario is validation;
 mixed exports cycle separately within each split so all five presentations reach training.
-Scenario families use `particle-worlds-SEED` across variants. Exact message hashes accompany each row.
+Scenario families use `particle-worlds-SEED` across variants. Episode IDs include selected wording and prompt seed
+to distinguish matched exports. Exact message hashes accompany each row.
 Run from clean committed source so revision pins identify the exported code. Review corpora before training.
 
 For matched evaluation, hold policies, game seeds, operator prompts, decoder settings, and published
