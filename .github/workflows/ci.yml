@@ -169,6 +169,12 @@ jobs:
           done
           exit "${fail}"
 
+      - name: Complete prompt wording games
+        run: |
+          nim c -d:release --parallelBuild:1 --path:src -o:particle-worlds-train-bridge tools/train_bridge.nim
+          python3 tools/test_train_bridge.py ./particle-worlds-train-bridge
+          python3 tools/test_prompt_games.py ./particle-worlds-train-bridge
+
   # ---------------------------------------------------------------------
   # Packaging smoke: the production image builds, and one real episode runs
   # end to end in raw docker with the certification fixture's seat mix.

@@ -119,3 +119,33 @@ MIT licensed. This is an **adaptation** of MPE, not a bit-exact port: MPE is flo
 with per-step vector actions and a soft boundary penalty, and particle worlds is integer fixed point
 on a wall-bounded pixel field with a 4.5 s directive cadence. What is carried over is MPE's shape —
 particles, landmarks, a discrete comm channel and the four scenario motives — not its numerics.
+
+## Episode prompt diversity
+
+The game accepts `promptVariant`: `canonical`, `plain`, `numbered`, `questions`, `reordered`,
+`heldout-briefing`, `heldout-reference`, or `mixed`. The `particle-worlds-rules-v3` bank varies complete motion,
+communication, timing, and round-payoff explanations. Every wording includes a shared scoring reference for partial proximity, opposing proximity, and round averaging.
+`mixed` requires an explicit nonnegative `promptSeed` and selects one of the five training wordings
+using `promptSeed % 5`. This seed is independent of physics, role, and landmark randomness.
+The selection stays fixed across all four rounds, seats, and retries.
+
+Alternate and held-out presentations use independently phrased explanations and different section orders. Operator strategies, anonymous aliases, private goals and
+keys, mode rules, and reply formats keep their existing behavior. Selection stays outside the
+simulation and replay keyframe layout.
+
+The JSONL bridge accepts these fields on reset. Append `text` to its command to use native directive
+responses through the real parser. Numeric mode retains its factored action interface. Training
+resets reject held-out wording. Both modes expose selection and exact system/user SHA-256
+hashes in `semantic_view.prompt_template`.
+
+The source exporter accepts `OUTPUT EPISODES [FIRST_SEED] [VARIANT] [PROMPT_VARIANT PROMPT_SEED]`.
+It retains the original train/validation JSONL and manifest. Every fifth scenario is validation;
+mixed exports cycle separately within each split so all five presentations reach training.
+Scenario families use `particle-worlds-SEED` across variants. Episode IDs include requested selection, resolved wording, and prompt seed
+to distinguish matched exports. Exact message hashes accompany each row.
+Run from clean committed source so revision pins identify the exported code. Review corpora before training.
+
+For matched evaluation, hold policies, game seeds, operator prompts, decoder settings, and published
+budgets fixed. Compare canonical and mixed training on both training wordings and held-out wordings.
+Report score, malformed replies, retries, fallback rate, and between-wording variance. Inspect failed
+and truncated episodes separately. Deterministic fixture equivalence does not establish learning stability.

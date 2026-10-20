@@ -1,9 +1,9 @@
 ## Export complete native particle-worlds games as Metta post-training examples.
-## Usage: nim r --path:src tools/export_posttrain.nim OUTPUT EPISODES [FIRST_SEED] [VARIANT]
+## Usage: nim r --path:src tools/export_posttrain.nim OUTPUT EPISODES [FIRST_SEED] [VARIANT] [PROMPT_VARIANT PROMPT_SEED]
 
 import std/[json, os, osproc, strutils]
 import bitworld/spriteprotocol
-import mpe/[sim, control, directives, baselines, decide, llm]
+import mpe/[sim, control, directives, baselines, decide, llm, prompts]
 
 const
   Variants = ["default", "coop", "deception", "comms", "chase"]
@@ -11,12 +11,15 @@ const
 
 when isMainModule:
   let args = commandLineParams()
-  if args.len notin 2 .. 4:
-    quit("usage: export_posttrain OUTPUT EPISODES [FIRST_SEED] [VARIANT]", 1)
+  if args.len notin [2, 3, 4, 6]:
+    quit("usage: export_posttrain OUTPUT EPISODES [FIRST_SEED] [VARIANT] [PROMPT_VARIANT PROMPT_SEED]", 1)
   let output = args[0]
   let episodes = parseInt(args[1])
   let firstSeed = if args.len >= 3: parseInt(args[2]) else: 1
-  let variant = if args.len == 4: args[3] else: "default"
+  let variant = if args.len >= 4: args[3] else: "default"
+  let configured = promptSelection(if args.len == 6:
+    %*{"promptVariant": args[4], "promptSeed": parseInt(args[5])} else: newJObject())
+  doAssert configured.selectedVariant notin {pvHeldoutBriefing, pvHeldoutReference}, "held-out wording is evaluation only"
   if episodes < 10 or firstSeed < 1:
     quit("at least ten episodes and a positive first seed are required", 1)
   if variant notin Variants:
@@ -35,13 +38,19 @@ when isMainModule:
     trainRows: seq[string]
     validationRows: seq[string]
     runs = newJArray()
+    wordingCounts: array[2, int]
   for seed in firstSeed ..< firstSeed + episodes:
+    var selection = configured
+    let split = ord(seed mod 5 == 0)
+    if selection.variant == pvMixed:
+      selection.seed += wordingCounts[split]
+      inc wordingCounts[split]
     var config = defaultGameConfig()
     config.update($variantConfig)
     config.seed = seed
     var sim = initSimServer(config)
     var
-      engine = initDecisionEngine(sim)
+      engine = initDecisionEngine(sim, selection)
       orders = newSeq[CogOrder](4)
       inputs = newSeq[InputState](4)
       prev = newSeq[InputState](4)
@@ -53,7 +62,7 @@ when isMainModule:
         for seat in 0 ..< 4:
           discard sim.addPlayer(config.slots[seat].name, seat,
             config.slots[seat].token, trusted = true)
-        engine = initDecisionEngine(sim)
+        engine = initDecisionEngine(sim, selection)
         inputs = newSeq[InputState](4)
         prev = newSeq[InputState](4)
         have = false
@@ -72,28 +81,30 @@ when isMainModule:
               roleName(sim.mode, sim.roleIndex[seat]))
             let completion = %*{"cogs": record["cogs"], "note": directive.note}
             let parsed = parseSquadDirective(completion, @[sim.cogAlias(seat)],
-              @[seat], MapWidth div 2, MapHeight div 2, MapWidth, MapHeight)
+              @[seat], MapWidth div 2, MapHeight div 2, MapWidth - 1, MapHeight - 1)
             doAssert parsed.orders.len == 1
             doAssert parsed.orders[0].intent == directive.orders[0].intent
             doAssert parsed.orders[0].targetX == directive.orders[0].targetX
             doAssert parsed.orders[0].targetY == directive.orders[0].targetY
             doAssert parsed.orders[0].symbol == directive.orders[0].symbol
             rows.add($(%*{
-              "episode_id": "particle-worlds-" & variant & "-" & $seed,
-              "seed": "particle-worlds-" & variant & "-" & $seed,
+              "episode_id": "particle-worlds-" & variant & "-" & $seed & "-" &
+                $selection.variant & "-" & $selection.selectedVariant & "-" & $selection.seed,
+              "seed": "particle-worlds-" & $seed,
+              "prompt_template": selection.promptMetadata(systemPrompt(selection), userMessage(OperatorPrompt, views[seat])),
               "decision_id":
                 sim.roundIndex * config.maxTicks div config.turnTicks * 4 +
                 turn * 4 + seat,
               "prompt": [
-                {"role": "system", "content": SystemPrompt},
+                {"role": "system", "content": systemPrompt(selection)},
                 {"role": "user", "content": userMessage(OperatorPrompt, views[seat])}
               ],
               "completion": [{"role": "assistant", "content": $completion}],
               "game": "particle-worlds",
               "action_schema_revision": "particle-worlds-directive-v1"
             }))
-            orders[seat] = directive.orders[0]
-            engine.directives[seat] = directive
+            orders[seat] = parsed.orders[0]
+            engine.directives[seat] = parsed
             engine.haveDirective[seat] = true
             sim.installSymbol(seat, orders[seat].symbol, turn)
           have = true

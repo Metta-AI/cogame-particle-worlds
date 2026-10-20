@@ -3,7 +3,7 @@
 
 import std/[json, os, posix]
 import bitworld/spriteprotocol
-import mpe/[sim, control, directives, baselines, decide, llm]
+import mpe/[sim, control, directives, baselines, decide, llm, prompts]
 
 const
   Variants = ["default", "coop", "deception", "comms", "chase"]
@@ -135,25 +135,44 @@ proc hostedDirective(candidate: JsonNode, alias: string): JsonNode =
     order["face"] = %[candidate["face_x"], candidate["face_y"]]
   %*{"cogs": [order]}
 
-proc decision(view: JsonNode, seat, id: int): JsonNode =
+proc decision(view: JsonNode, seat, id: int, selection: PromptSelection, textMode: bool): JsonNode =
+  let system = systemPrompt(selection)
+  let user = userMessage(OperatorPrompt, $view)
+  let semanticView = view.copy()
+  semanticView["prompt_template"] = selection.promptMetadata(system, user)
   var properties = newJObject()
   var required = newJArray()
   for head in heads():
     let name = head["name"].getStr()
     properties[name] = %*{"enum": head["choices"]}
     required.add(%name)
-  %*{"kind": "decision", "game": "particle-worlds", "decision_id": id,
+  result = %*{"kind": "decision", "game": "particle-worlds", "decision_id": id,
     "seat": seat, "engine_seat": seat, "turn": view["turn"],
-    "semantic_view": view, "inbox": [],
-    "messages": [{"role": "system", "content": SystemPrompt},
-      {"role": "user", "content": userMessage(OperatorPrompt, $view)}],
+    "semantic_view": semanticView, "inbox": [],
+    "messages": [{"role": "system", "content": system},
+      {"role": "user", "content": user}],
     "speech_messages": [],
     "action_schema": {"type": "object", "properties": properties,
       "required": required}, "typed_question": newJNull()}
 
+  if textMode:
+    result["action_schema"] = %*{"type": "object", "required": ["cogs"],
+      "properties": {"note": {"type": "string", "maxLength": MaxNoteRunes},
+        "cogs": {"type": "array", "minItems": 1, "maxItems": 1,
+          "items": {"type": "object", "required": ["id", "intent", "target", "symbol"],
+            "properties": {"id": {"type": "string", "enum": [view["you"]["id"]]},
+              "intent": {"type": "string", "enum": Intents},
+              "target": {"type": "array", "minItems": 2, "maxItems": 2,
+                "items": {"type": "integer"}},
+              "face": {"oneOf": [{"type": "null"}, {"type": "array", "minItems": 2,
+                "maxItems": 2, "items": {"type": "integer"}}]},
+              "symbol": {"type": "string", "enum": ["-", "A", "B", "C", "D", "E", "F", "G", "H"]}}}}}}
+
 when isMainModule:
   let args = commandLineParams()
-  if args.len != 2: quit("usage: particle-worlds-train-bridge MANIFEST VARIANT", 1)
+  if args.len notin 2 .. 3: quit("usage: particle-worlds-train-bridge MANIFEST VARIANT [text]", 1)
+  let textMode = args.len == 3
+  if textMode: doAssert args[2] == "text"
   let variant = args[1]
   doAssert variant in Variants
   let manifest = parseFile(args[0])
@@ -162,6 +181,7 @@ when isMainModule:
   for entry in manifest["variants"]:
     if entry["id"].getStr() == variant: variantConfig = entry["game_config"]
   doAssert not variantConfig.isNil
+  var selection: PromptSelection
   var game: SimServer
   var engine: DecisionEngine
   var views: array[4, JsonNode]
@@ -181,6 +201,12 @@ when isMainModule:
     case request["kind"].getStr()
     of "reset":
       doAssert request["players"].getInt() == 4
+      selection = promptSelection(request)
+      let split = if request.hasKey("split"): request["split"].getStr() else: "train"
+      doAssert split in ["train", "validation", "test"]
+      if split == "train" and selection.selectedVariant in
+          {pvHeldoutBriefing, pvHeldoutReference}:
+        raise newException(ValueError, "held-out wording cannot enter training")
       var config = defaultGameConfig()
       config.update($variantConfig)
       config.seed = seedOf(request["seed"].getStr())
@@ -188,7 +214,7 @@ when isMainModule:
       for actor in 0 ..< 4:
         discard game.addPlayer(config.slots[actor].name, actor,
           config.slots[actor].token, trusted = true)
-      engine = initDecisionEngine(game)
+      engine = initDecisionEngine(game, selection)
       inputs = default(array[4, InputState])
       prev = inputs
       while game.phase != Playing:
@@ -202,23 +228,33 @@ when isMainModule:
       seat = 0
       id = 0
       played = 0
-      response = views[seat].decision(seat, id)
+      response = views[seat].decision(seat, id, selection, textMode)
     of "encode":
       doAssert played < game.config.maxGames
       response = %*{"decision_id": id,
         "values": views[seat].values(variant), "action_heads": heads()}
     of "teacher":
       doAssert played < game.config.maxGames
-      response = %*{"response": $teachers[seat]}
+      let proposal = if textMode:
+        teachers[seat].hostedDirective(game.cogAlias(seat))
+        else: teachers[seat]
+      response = %*{"response": $proposal}
     of "step":
       doAssert played < game.config.maxGames and request["decision_id"].getInt() == id
-      let candidate = parseJson(request["response"].getStr())
-      for head in heads():
-        doAssert candidate[head["name"].getStr()] in head["choices"]
+      let candidate = extractJsonObject(request["response"].getStr())
+      var proposal = candidate
+      if not textMode:
+        for head in heads():
+          doAssert candidate[head["name"].getStr()] in head["choices"]
+        proposal = candidate.hostedDirective(game.cogAlias(seat))
       let directive = parseSquadDirective(
-        candidate.hostedDirective(game.cogAlias(seat)), @[game.cogAlias(seat)],
-        @[seat], MapWidth div 2, MapHeight div 2, MapWidth, MapHeight)
+        proposal, @[game.cogAlias(seat)],
+        @[seat], MapWidth div 2, MapHeight div 2, MapWidth - 1, MapHeight - 1)
       doAssert directive.orders.len == 1
+      let record = directive.directiveRecord(game.roundIndex + 1, turn,
+        seat, $game.mode, game.cogAlias(seat), roleName(game.mode, game.roleIndex[seat]))
+      let applied = if textMode: %*{"cogs": record["cogs"], "note": directive.note}
+        else: candidate
       orders[seat] = directive.orders[0]
       engine.directives[seat] = directive
       engine.haveDirective[seat] = true
@@ -226,7 +262,7 @@ when isMainModule:
       inc seat
       var observation: JsonNode
       if seat < 4:
-        observation = views[seat].decision(seat, id)
+        observation = views[seat].decision(seat, id, selection, textMode)
       else:
         for actor in 0 ..< 4:
           game.installSymbol(actor, orders[actor].symbol, turn)
@@ -257,7 +293,7 @@ when isMainModule:
             for actor in 0 ..< 4:
               discard game.addPlayer(game.config.slots[actor].name, actor,
                 game.config.slots[actor].token, trusted = true)
-            engine = initDecisionEngine(game)
+            engine = initDecisionEngine(game, selection)
             inputs = default(array[4, InputState])
             prev = inputs
             while game.phase != Playing: game.step(inputs, prev)
@@ -268,8 +304,8 @@ when isMainModule:
               game.config.maxTicks div game.config.turnTicks))
             teachers[actor] = action(scriptedDirective(engine.ctl,
               game, blDrifter, @[actor]).orders[0])
-          observation = views[seat].decision(seat, id)
-      response = %*{"kind": "accepted", "action": candidate,
+          observation = views[seat].decision(seat, id, selection, textMode)
+      response = %*{"kind": "accepted", "action": applied,
         "observation": observation}
     else:
       raise newException(ValueError, "unknown command: " & request["kind"].getStr())

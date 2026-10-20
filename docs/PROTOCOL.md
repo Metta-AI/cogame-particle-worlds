@@ -240,3 +240,11 @@ schema is `additionalProperties: false`. Exactly 22 keys; see the manifest and
 `bumps` is the **last round's** bump ticks per seat, not an episode total: the counter is zeroed at
 the start of every round because the `spread` debit is a per-round term. Every other seat-indexed
 array (`roundScores`, `llmTurns`, `fallbackTurns`, `means`) is per episode.
+
+## Prompt selection
+
+`promptVariant` and `promptSeed` select an episode-stable complete rules presentation.
+Selection stays outside simulation state, the physics hash, and positional replay keyframes.
+Native calls, source exports, and the training bridge share the same renderer. Operator
+prompts, legal directives, observations, and retry behavior remain unchanged. Bridge and
+export metadata record the selected bank and exact system/user message hashes.

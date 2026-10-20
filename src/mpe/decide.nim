@@ -22,7 +22,7 @@
 import
   std/[json, math, monotimes, os, strutils, times],
   curly,
-  sim, control, directives, baselines, llm
+  sim, control, directives, baselines, llm, prompts
 
 type
   SeatPolicy* = object
@@ -35,6 +35,7 @@ type
     registered*: bool
 
   DecisionEngine* = object
+    selection*: PromptSelection
     client*: LlmClient
     ctl*: ControlState
     seats*: seq[SeatPolicy]
@@ -45,7 +46,8 @@ type
     llmOff*: bool              ## the budget guard fired; scripted from here on
     records*: seq[string]      ## chat records queued for the replay writer
 
-proc initDecisionEngine*(sim: SimServer): DecisionEngine =
+proc initDecisionEngine*(sim: SimServer, selection: PromptSelection): DecisionEngine =
+  result.selection = selection
   result.client = newLlmClient(sim.config)
   result.ctl = initControlState(sim)
   result.seats = newSeq[SeatPolicy](sim.seatCount())
@@ -490,7 +492,7 @@ proc turn*(
           "the JSON object described above, starting with '{', with exactly " &
           "one \"cogs\" entry, for yourself.")
       let request = engine.client.requestFor(
-        SystemPrompt, userMessage(engine.seats[seat].prompt, user), seat)
+        systemPrompt(engine.selection), userMessage(engine.seats[seat].prompt, user), seat)
       batch.post(request.url, request.headers, request.body, $seat)
     let started = getMonoTime()
     # curly hands the deadline to CURLOPT_TIMEOUT, whose granularity is WHOLE

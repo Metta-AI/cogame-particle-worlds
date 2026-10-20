@@ -13,7 +13,7 @@ import std/[atomics, json, locks, monotimes, os, strutils, times, unicode,
             unittest]
 import bitworld/spriteprotocol
 import mummy, mummy/routers
-import ../src/mpe/[sim, control, directives, baselines, decide, llm]
+import ../src/mpe/[sim, control, directives, baselines, decide, llm, prompts]
 import fixture
 
 type
@@ -98,7 +98,7 @@ proc recordedWindows(): seq[Window] =
     result = windows
 
 proc llmEngine(sim: SimServer): DecisionEngine =
-  result = initDecisionEngine(sim)
+  result = initDecisionEngine(sim, PromptSelection())
   for seat in 0 ..< result.seats.len:
     result.seats[seat].isLlm = true
     result.seats[seat].prompt = "cover a mark"

@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 MANIFEST = Path(__file__).resolve().parent.parent / "coworld_manifest_template.json"
 
 
@@ -19,16 +18,19 @@ def play(binary: Path, variant: str, teacher: bool) -> None:
         text=True,
         bufsize=1,
     )
-    assert process.stdin is not None and process.stdout is not None
+    input_stream, output_stream = process.stdin, process.stdout
+    assert input_stream is not None and output_stream is not None
     rng = random.Random(17)
 
     def request(payload: dict) -> dict:
-        process.stdin.write(json.dumps(payload) + "\n")
-        process.stdin.flush()
-        return json.loads(process.stdout.readline())
+        input_stream.write(json.dumps(payload) + "\n")
+        input_stream.flush()
+        return json.loads(output_stream.readline())
 
     try:
-        observation = request({"kind": "reset", "seed": f"particle-{variant}-{teacher}", "players": 4})
+        observation = request(
+            {"kind": "reset", "seed": f"particle-{variant}-{teacher}", "players": 4, "split": "validation"}
+        )
         widths = set()
         decisions = 0
         rounds = set()
@@ -63,8 +65,8 @@ def play(binary: Path, variant: str, teacher: bool) -> None:
         assert len(widths) == 1 and rounds == {1, 2, 3, 4}
         print(variant, "teacher" if teacher else "random", decisions, widths.pop(), "features")
     finally:
-        process.stdin.close()
-        process.stdout.close()
+        input_stream.close()
+        output_stream.close()
         assert process.wait(timeout=5) == 0
 
 
@@ -80,22 +82,30 @@ def check_simultaneous_views(binary: Path) -> None:
             text=True,
             bufsize=1,
         )
-        assert process.stdin is not None and process.stdout is not None
+        input_stream, output_stream = process.stdin, process.stdout
+        assert input_stream is not None and output_stream is not None
 
-        def request(payload: dict) -> dict:
-            process.stdin.write(json.dumps(payload) + "\n")
-            process.stdin.flush()
-            return json.loads(process.stdout.readline())
+        def request(payload: dict, input_stream=input_stream, output_stream=output_stream) -> dict:
+            input_stream.write(json.dumps(payload) + "\n")
+            input_stream.flush()
+            return json.loads(output_stream.readline())
 
-        request({"kind": "reset", "seed": "particle-simultaneous", "players": 4})
-        action = {"intent": "go", "target_x": 600, "target_y": 300,
-                  "face": 0, "face_x": 0, "face_y": 0, "symbol": symbol}
-        next_views.append(request(
-            {"kind": "step", "decision_id": 0, "response": json.dumps(action)}
-        )["observation"]["semantic_view"])
+        request({"kind": "reset", "seed": "particle-simultaneous", "players": 4, "split": "validation"})
+        action = {
+            "intent": "go",
+            "target_x": 600,
+            "target_y": 300,
+            "face": 0,
+            "face_x": 0,
+            "face_y": 0,
+            "symbol": symbol,
+        }
+        next_views.append(
+            request({"kind": "step", "decision_id": 0, "response": json.dumps(action)})["observation"]["semantic_view"]
+        )
         next_teachers.append(request({"kind": "teacher"})["response"])
-        process.stdin.close()
-        process.stdout.close()
+        input_stream.close()
+        output_stream.close()
         assert process.wait(timeout=5) == 0
     assert next_views[0] == next_views[1]
     assert next_teachers[0] == next_teachers[1]

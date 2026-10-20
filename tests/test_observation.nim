@@ -2,11 +2,11 @@
 ## each seat must see, and what it must never see.
 
 import std/[json, strutils, unittest]
-import ../src/mpe/[sim, control, directives, decide]
+import ../src/mpe/[sim, control, directives, decide, prompts]
 import fixture
 
 proc viewOf(sim: SimServer, seat: int): JsonNode =
-  var engine = initDecisionEngine(sim)
+  var engine = initDecisionEngine(sim, PromptSelection())
   parseJson(engine.seatViewJson(sim, seat, 3, 10))
 
 suite "the per-seat observation":
@@ -130,7 +130,7 @@ suite "the per-seat observation":
     config.seed = 1234567
     var sim = seatedSim(config)
     for seat in 0 ..< 4:
-      let text = (var engine = initDecisionEngine(sim);
+      let text = (var engine = initDecisionEngine(sim, PromptSelection());
                   engine.seatViewJson(sim, seat, 3, 10))
       check "1234567" notin text
       check "seed" notin text
@@ -146,7 +146,7 @@ suite "the per-seat observation":
 
   test "no seat frame carries another seat's order for the turn being decided":
     var sim = seatedSim(fixtureConfig(@[modeSpread]))
-    var engine = initDecisionEngine(sim)
+    var engine = initDecisionEngine(sim, PromptSelection())
     ## Install a directive on every seat, as the turn boundary does.
     for seat in 0 ..< 4:
       engine.directives[seat] = SquadDirective(

@@ -5,7 +5,7 @@ import
   bitworld/runtime,
   curly, mummy,
   sim, global, replays, broadcast, replay_runtime, events, wire_constants,
-  control, directives, baselines, decide
+  control, directives, baselines, decide, prompts
 
 when defined(posix):
   from std/posix import SHUT_RDWR, shutdown
@@ -1250,6 +1250,9 @@ proc runServerLoop*(
   runtimeConfig = RuntimeConfig()
 ) =
   initAppState()
+  let selection = promptSelection(
+    if runtimeConfig.config.len > 0: parseJson(runtimeConfig.config)
+    else: newJObject())
   if saveReplayPath.len > 0 and loadReplayPath.len > 0:
     raise newException(ReplayError, "Cannot save and load a replay together")
   var replayLoaded = loadReplayPath.len > 0
@@ -1366,7 +1369,7 @@ proc runServerLoop*(
   let squadMode = not replayLoaded and config.numAgents > 0
   var
     engine =
-      if squadMode: initDecisionEngine(sim) else: DecisionEngine()
+      if squadMode: initDecisionEngine(sim, selection) else: DecisionEngine()
     squadsBuilt = false
     squadForceStart = false
     lastTurnKey = -1
