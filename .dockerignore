@@ -7,3 +7,4 @@ tmp
 build
 replay-viewer/dist
 *.tmp
+dist/

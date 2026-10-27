@@ -22,7 +22,7 @@
 import
   std/[json, math, monotimes, os, strutils, times],
   curly,
-  sim, control, directives, baselines, llm, prompts
+  sim, control, directives, baselines, llm, prompts, training_capture
 
 type
   SeatPolicy* = object
@@ -35,6 +35,7 @@ type
     registered*: bool
 
   DecisionEngine* = object
+    capture*: RuntimeCapture
     selection*: PromptSelection
     client*: LlmClient
     ctl*: ControlState
@@ -48,6 +49,7 @@ type
 
 proc initDecisionEngine*(sim: SimServer, selection: PromptSelection): DecisionEngine =
   result.selection = selection
+  result.capture = newRuntimeCapture("particle-worlds", sim.config.seed)
   result.client = newLlmClient(sim.config)
   result.ctl = initControlState(sim)
   result.seats = newSeq[SeatPolicy](sim.seatCount())
@@ -400,6 +402,12 @@ proc turn*(
       echo "particle-worlds: budget guard fired at turn ", turnIndex,
         "; remaining turns play scripted"
 
+  if engine.capture != nil:
+    var observations: seq[JsonNode]
+    for seat in 0 ..< engine.seats.len:
+      observations.add(parseJson(engine.seatViewJson(sim, seat, turnIndex, turnsPerRound)))
+    engine.capture.beginTurn(observations)
+
   # --- which seats need a call? --------------------------------------------
   var open: seq[int]
   for seat in 0 ..< engine.seats.len:
@@ -510,10 +518,14 @@ proc turn*(
     var stillOpen: seq[int]
     for position, seat in open:
       var cause = "parse_error"
+      var evidence = modelAttempt($sim.tickCount & "-" & $seat & "-" & $(attempt + 1),
+        engine.seats[seat].label, engine.client.requestedModel(), batch[position].url,
+        batch[position].body, responses[position].response, responses[position].error, latency)
       try:
         let text = engine.client.textOf(
           responses[position].response, responses[position].error,
           batch[position].url)
+        evidence.response = %text
         let commanded = sim.commandedCogs(seat)
         var ids: seq[string]
         for cogIndex in commanded:
@@ -524,10 +536,18 @@ proc turn*(
           fx, fy, MapWidth - 1, MapHeight - 1)
         directive.source = dsLlm
         directive.latencyMs = latency
+        evidence.parsedAction = directive.actionJson()
+        var completeModelOrder = directive.orders.len > 0
+        for order in directive.orders:
+          if not order.fromReply: completeModelOrder = false
         engine.repairMissingOrders(sim, seat, directive)
         engine.directives[seat] = directive
         engine.haveDirective[seat] = true
+        evidence.accepted = completeModelOrder and evidence.parsedAction == directive.actionJson()
+        if not evidence.accepted:
+          evidence.rejectionReason = some("engine repaired missing orders")
       except CatchableError as error:
+        evidence.rejectionReason = some(error.msg)
         if responses[position].error.len > 0:
           cause = (if "timeout" in responses[position].error.toLowerAscii():
                      "timeout" else: "transport_error")
@@ -543,6 +563,7 @@ proc turn*(
         echo "particle-worlds llm: seat ", seat, " attempt ", attempt + 1,
           " failed, falling back if it fails again: ", error.msg
         stillOpen.add(seat)
+      engine.capture.recordAttempt(seat, evidence)
     open = stillOpen
     inc attempt
     if engine.client.throttled and open.len > 0:
@@ -578,3 +599,10 @@ proc turn*(
     ## "falling back" is the phrase phase 60 greps the GAME log for.
     echo "particle-worlds llm: seat ", seat, " falling back to drifter (", cause,
       ") on turn ", turnIndex
+
+  for seat in 0 ..< engine.seats.len:
+    let origin = if engine.directives[seat].source == dsLlm: aoModel
+      elif engine.directives[seat].source == dsScripted and engine.seats[seat].registered: aoTeacher
+      else: aoFallback
+    engine.capture.applied(seat, sim.tickCount, engine.directives[seat].actionJson(), origin,
+      if origin == aoTeacher: "scripted-" & $engine.seats[seat].baseline else: "engine-particle-worlds-fallback")

@@ -474,3 +474,7 @@ proc userMessage*(operatorPrompt: string, viewJson: string): string =
   ## The user message: the operator's guidance, a blank line, then the seat's
   ## view. The view is built server-side from the seat's fog (see decide.nim).
   operatorBlock(operatorPrompt) & viewJson
+
+proc requestedModel*(client: LlmClient): string =
+  if client.transport == ltBedrock: client.bedrockModels[client.bedrockModel]
+  else: client.model

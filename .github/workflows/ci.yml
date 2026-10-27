@@ -108,6 +108,10 @@ jobs:
         # at release time.
         run: python3 tools/build_manifest.py --check
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Assert the coworld CLI accepts the manifest
         # The Nim manifest test pins what the GAME needs; this pins what the
         # release-time CLI accepts, which is a different set and was otherwise
@@ -236,7 +240,7 @@ jobs:
   # container (Dockerfile.replay-viewer) because the runner has no emcc.
   # ---------------------------------------------------------------------
   wasm-viewer:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     # The bundle is EXECUTED here, not merely built, and it is executed against
     # the replay docker-smoke just produced -- hence the dependency.
