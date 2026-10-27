@@ -1,0 +1,3 @@
+# Vendored decision trajectory contract
+
+`src/mpe/decision_trajectory.nim` is copied from [Metta-AI/bitworld c336f54e10e9028d9cfbda540ee085ac7627fbb3](https://github.com/Metta-AI/bitworld/blob/c336f54e10e9028d9cfbda540ee085ac7627fbb3/src/bitworld/decision_trajectory.nim), with only its runtime import qualified. Upstream declares the MIT license in [bitworld.nimble](https://github.com/Metta-AI/bitworld/blob/c336f54e10e9028d9cfbda540ee085ac7627fbb3/bitworld.nimble). This game retains its existing Bitworld pin because the newer package removes the eighth input button used by the stored simulation format.

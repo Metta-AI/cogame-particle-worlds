@@ -5,7 +5,7 @@ import
   bitworld/runtime,
   curly, mummy,
   sim, global, replays, broadcast, replay_runtime, events, wire_constants,
-  control, directives, baselines, decide, prompts
+  control, directives, baselines, decide, prompts, training_capture
 
 when defined(posix):
   from std/posix import SHUT_RDWR, shutdown
@@ -2249,6 +2249,7 @@ proc runServerLoop*(
 
     if quitAfterFrame:
       if squadMode:
+        engine.capture.finishCapture(parseJson(sim.playerResultsJson()))
         # The `result` control record: the full results document, written once
         # into the replay chat stream at episode end (docs/PROTOCOL.md record
         # table), so a particle-worlds replay is self-sufficient — the outcome would
