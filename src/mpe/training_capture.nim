@@ -31,7 +31,7 @@ proc modelAttempt*(identity, policy, model, url, body: string,
   let request = parseJson(body)
   result.prompt = %*[{"role": "system", "content": request["system"]},
     {"role": "user", "content": request["messages"][0]["content"]}]
-  result.request = %*{"url": url, "body": body}
+  result.request = copy(request)
   result.decoder = %*{"max_tokens": request["max_tokens"]}
   for key in ["temperature", "top_p", "top_k", "output_config"]:
     if request.hasKey(key): result.decoder[key] = request[key]
